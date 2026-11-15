@@ -12,6 +12,16 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -82,6 +92,8 @@ fun ReaderApp() {
     val scope = rememberCoroutineScope()
     var entries by remember { mutableStateOf<List<LibraryEntry>>(emptyList()) }
     var selected by rememberSaveable { mutableStateOf<String?>(null) }
+    var linkedEntry by remember { mutableStateOf<LibraryEntry?>(null) }
+    var libraryQuery by rememberSaveable { mutableStateOf("") }
     var busy by remember { mutableStateOf(true) }
     var fontSize by remember { mutableFloatStateOf(store.preferences.getFloat("font", 17f)) }
     var theme by remember { mutableStateOf(store.preferences.getString("theme", "Dark") ?: "Dark") }
@@ -114,17 +126,18 @@ fun ReaderApp() {
             notice = "Imported $added • Already in library $duplicates" + if (failures.isEmpty()) "" else "\n${failures.size} failed: ${failures.first()}"
         }
     }
-    val active = entries.find { it.id == selected }
+    val active = linkedEntry ?: entries.find { it.id == selected }
     var backRequest by remember { mutableIntStateOf(0) }
-    BackHandler(selected != null) { backRequest++ }
+    BackHandler(active != null) { backRequest++ }
+    BackHandler(active == null && librarySearch) { librarySearch = false; libraryQuery = "" }
     MaterialTheme(colorScheme = if (theme == "Dark" || (theme == "System" && isSystemInDarkTheme())) Night else Day) {
         Scaffold(
             topBar = {
-                TopAppBar(title = { Column {
-                    Text(if (active == null) "Conversation Reader" else active.conversation.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleLarge)
-                    Text(if (active == null) "For LM Studio files · v${BuildConfig.VERSION_NAME}" else "${active.conversation.messages.size} messages · ${date(active.conversation.createdAt)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
-                } }, navigationIcon = { if (active != null) TextButton(onClick = { backRequest++ }) { Text("‹ Back") } },
-                    actions = { if (active == null) { IconButton(onClick = { librarySearch = !librarySearch }) { Icon(painterResource(R.drawable.ic_search), contentDescription = "Search library") }; IconButton(onClick = { settings = true }) { Icon(painterResource(R.drawable.ic_settings), contentDescription = "Settings") } } else TextButton(onClick = { settings = true }) { Text("Aa") } })
+                if (active == null) Box(Modifier.statusBarsPadding()) { ReaderToolbar(
+                    searching = librarySearch, query = libraryQuery, onQuery = { libraryQuery = it },
+                    onSearch = { librarySearch = true }, onCloseSearch = { librarySearch = false; libraryQuery = "" },
+                    onPreferences = { settings = true }, title = "Conversation Reader", subtitle = "For LM Studio files · v${BuildConfig.VERSION_NAME}"
+                ) }
             }, snackbarHost = { SnackbarHost(snackbars) }
         ) { insets ->
             Box(Modifier.fillMaxSize().padding(insets).imePadding()) {
@@ -134,62 +147,38 @@ fun ReaderApp() {
                         if (active == null) placeable.placeRelative(0, 0)
                     }
                 }.then(if (active != null) Modifier.clearAndSetSemantics { } else Modifier)) {
-                Library(entries, busy, store, folderRequest, librarySearch, onFolderRequestHandled = { folderRequest = 0 }, onFolderOpen = { file -> scope.launch {
+                Library(entries, busy, store, folderRequest, librarySearch, libraryQuery, onFolderRequestHandled = { folderRequest = 0 }, onFolderOpen = { file -> scope.launch {
                     busy = true
                     try {
-                        withContext(Dispatchers.IO) { store.import(file.uri) }
-                        refresh()
-                        selected = store.preferences.getString("source_${file.uri}", null)
-                        selected?.let { store.opened(it) }
+                        linkedEntry = withContext(Dispatchers.IO) { store.openLinked(file) }
+                        linkedEntry?.let { store.opened(it.id) }
                     } catch (e: Exception) { notice = "Cannot open file: ${e.message}" }
                     finally { busy = false }
                 } }, onImport = { importer.launch(arrayOf("*/*")) }, onOpen = {
-                    store.opened(it.id); selected = it.id
+                    linkedEntry = null; store.opened(it.id); selected = it.id
                     entries = entries.sortedByDescending { entry -> maxOf(store.recent(entry.id), entry.importedAt) }
                 }, onRemove = { entry -> scope.launch {
                     runCatching { withContext(Dispatchers.IO) { store.remove(entry.id) } }.onFailure { notice = it.message }
                     refresh()
                 } })
                 }
-                if (active != null) Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) { key(active.id) { ConversationView(active, store, fontSize, collapsePrompts, backRequest, onBack = { selected = null }) } }
+                if (active != null) Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) { key(active.id) { ConversationView(active, store, fontSize, collapsePrompts, backRequest, onBack = { linkedEntry = null; selected = null }, onPreferences = { settings = true }) } }
                 if (busy) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter))
             }
         }
-        if (settings) AlertDialog(onDismissRequest = { settings = false }, title = { Text(if (active == null) "Settings" else "Reading preferences") }, text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (active == null) {
-                    Text("LINKED FOLDER", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                    Text(store.preferences.getString("linkedFolder", null)?.let { android.net.Uri.decode(it).substringAfterLast(":") } ?: "No folder selected", style = MaterialTheme.typography.bodyMedium)
-                    TextButton(onClick = { settings = false; folderRequest++ }) { Text(if (store.preferences.contains("linkedFolder")) "Change folder" else "Link folder") }
-                    HorizontalDivider()
-                    Text("CONVERSATION NAVIGATION", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Collapse by prompts", Modifier.weight(1f))
-                        Switch(checked = collapsePrompts, onCheckedChange = { collapsePrompts = it; store.preferences.edit().putBoolean("collapsePrompts", it).apply() })
-                    }
-                    Text("Start with two-line prompt previews. Tap a prompt to expand its full text and replies.", style = MaterialTheme.typography.bodySmall)
-                    Spacer(Modifier.height(16.dp))
-                }
-                HorizontalDivider()
-                Text("APPEARANCE", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                Text("Text size · ${fontSize.toInt()} sp")
-                Slider(value = fontSize, onValueChange = { fontSize = it; store.preferences.edit().putFloat("font", it).apply() }, valueRange = 14f..26f, steps = 11)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("Light", "Dark", "System").forEach { choice ->
-                    FilterChip(selected = theme == choice, onClick = { theme = choice; store.preferences.edit().putString("theme", choice).apply() }, label = {
-                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            if (choice == "System") Text(choice, maxLines = 1, fontSize = 13.sp)
-                            else Icon(painterResource(if (choice == "Light") R.drawable.ic_sun else R.drawable.ic_moon), contentDescription = "$choice mode", modifier = Modifier.size(28.dp))
-                        }
-                    }, modifier = Modifier.weight(1f).height(60.dp))
-                } }
-                Spacer(Modifier.height(16.dp))
-            }
-        }, confirmButton = { TextButton(onClick = { settings = false }) { Text("Done") } })
+        if (settings) PreferencesScreen(
+            main = active == null, folder = store.preferences.getString("linkedFolder", null),
+            fontSize = fontSize, theme = theme, collapse = collapsePrompts,
+            onClose = { settings = false }, onFolder = { settings = false; folderRequest++ },
+            onFont = { fontSize = it; store.preferences.edit().putFloat("font", it).apply() },
+            onTheme = { theme = it; store.preferences.edit().putString("theme", it).apply() },
+            onCollapse = { collapsePrompts = it; store.preferences.edit().putBoolean("collapsePrompts", it).apply() }
+        )
     }
 }
 
 @Composable
-private fun Library(entries: List<LibraryEntry>, busy: Boolean, store: LibraryStore, folderRequest: Int, showSearch: Boolean, onFolderRequestHandled: () -> Unit, onFolderOpen: (LibraryStore.FolderFile) -> Unit, onImport: () -> Unit, onOpen: (LibraryEntry) -> Unit, onRemove: (LibraryEntry) -> Unit) {
+private fun Library(entries: List<LibraryEntry>, busy: Boolean, store: LibraryStore, folderRequest: Int, showSearch: Boolean, query: String, onFolderRequestHandled: () -> Unit, onFolderOpen: (LibraryStore.FolderFile) -> Unit, onImport: () -> Unit, onOpen: (LibraryEntry) -> Unit, onRemove: (LibraryEntry) -> Unit) {
     var sortField by rememberSaveable { mutableStateOf(store.preferences.getString("sortField", "Date") ?: "Date") }
     var descending by rememberSaveable { mutableStateOf(store.preferences.getBoolean("sortDescending", true)) }
     var sortMenu by remember { mutableStateOf(false) }
@@ -207,6 +196,7 @@ private fun Library(entries: List<LibraryEntry>, busy: Boolean, store: LibrarySt
     LaunchedEffect(folderRequest) { if (folderRequest > 0) { folderPicker.launch(store.preferences.getString("linkedFolder", null)?.let { android.net.Uri.parse(it) }); onFolderRequestHandled() } }
     LaunchedEffect(refreshKey) {
                 if (store.preferences.contains("linkedFolder")) {
+                    files = withContext(Dispatchers.IO) { store.cachedFolder() }
                     scanning = true
                     try { files = withContext(Dispatchers.IO) { store.scanFolder() }; folderError = null }
                     catch (e: kotlinx.coroutines.CancellationException) { throw e }
@@ -214,7 +204,6 @@ private fun Library(entries: List<LibraryEntry>, busy: Boolean, store: LibrarySt
                     finally { scanning = false }
                 }
     }
-    var query by rememberSaveable { mutableStateOf("") }
     var removing by remember { mutableStateOf<LibraryEntry?>(null) }
     val searchIndex = remember(entries) { entries.associate { it.id to it.conversation.searchable } }
     val filtered = remember(entries, query, showSearch) { entries.filter { !showSearch || searchIndex[it.id].orEmpty().contains(query, ignoreCase = true) } }
@@ -225,6 +214,7 @@ private fun Library(entries: List<LibraryEntry>, busy: Boolean, store: LibrarySt
         }
         if (source != "Imported") {
             Text("Linked folder · " + (store.preferences.getString("linkedFolder", null)?.let { android.net.Uri.decode(it).substringAfterLast(":") } ?: "Choose SyncFolder/conversations"), style = MaterialTheme.typography.labelSmall)
+            if (scanning && files.isNotEmpty()) LinearProgressIndicator(Modifier.fillMaxWidth())
             folderError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             if (source == "Folders") Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(enabled = path.isNotEmpty(), onClick = { path = path.substringBeforeLast('/', "") }) { Text("↑ Up") }
@@ -243,7 +233,7 @@ private fun Library(entries: List<LibraryEntry>, busy: Boolean, store: LibrarySt
                     }
                 }
             }
-            if (showSearch) OutlinedTextField(query, onValueChange = { query = it }, placeholder = { Text("Filter titles and paths") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+
             val prefix = if (path.isEmpty()) "" else "$path/"
             val folders = files.filter { it.isDirectory && it.path.startsWith(prefix) && '/' !in it.path.removePrefix(prefix) }.map { it.path.removePrefix(prefix) }.sortedBy { it.lowercase() }
             val sorter = when (sortField) { "Name" -> compareBy<LibraryStore.FolderFile> { it.title.lowercase() }; "Length" -> compareBy<LibraryStore.FolderFile> { it.words ?: -1 }; else -> compareBy<LibraryStore.FolderFile> { it.modified } }
@@ -251,19 +241,18 @@ private fun Library(entries: List<LibraryEntry>, busy: Boolean, store: LibrarySt
             Box(Modifier.weight(1f)) {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (source == "Folders") items(folders.filter { !showSearch || it.contains(query, true) }) { folder ->
-                    OutlinedButton(onClick = { path = prefix + folder; query = "" }, modifier = Modifier.fillMaxWidth()) { Text("▸ $folder", Modifier.fillMaxWidth()) }
+                    OutlinedButton(onClick = { path = prefix + folder }, modifier = Modifier.fillMaxWidth()) { Text("▸ $folder", Modifier.fillMaxWidth()) }
                 }
                 items(visible, key = { it.uri.toString() }) { file ->
-                    Card(onClick = { if (!busy) onFolderOpen(file) }, modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp)) {
-                        Text(file.title, style = MaterialTheme.typography.titleMedium)
-                        Text(file.words?.let { "${java.text.NumberFormat.getIntegerInstance().format(it)} words" } ?: "Length unavailable", style = MaterialTheme.typography.labelSmall)
-                        if (source == "All files") Text(file.path.substringBeforeLast('/', "/"), style = MaterialTheme.typography.bodySmall)
-                        Text("Modified: ${date(file.modified.takeIf { it > 0 })}", style = MaterialTheme.typography.labelSmall)
+                    Card(onClick = { if (!busy) onFolderOpen(file) }, modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                        Text(file.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text("${file.words?.let { "${java.text.NumberFormat.getIntegerInstance().format(it)} words" } ?: "Length unavailable"} · ${date(file.modified.takeIf { it > 0 })}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (source == "All files" && '/' in file.path) Text(file.path.substringBeforeLast('/'), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     } }
                 }
                 if (!scanning && visible.isEmpty() && (source != "Folders" || folders.isEmpty())) item { Text("No conversation files here. The list refreshes automatically.") }
             }
-            if (scanning) Surface(Modifier.align(Alignment.Center), shape = RoundedCornerShape(16.dp), tonalElevation = 8.dp) {
+            if (scanning && files.isEmpty()) Surface(Modifier.align(Alignment.Center), shape = RoundedCornerShape(16.dp), tonalElevation = 8.dp) {
                 Column(Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     CircularProgressIndicator(Modifier.size(32.dp))
                     Text("Refreshing..")
@@ -276,7 +265,7 @@ private fun Library(entries: List<LibraryEntry>, busy: Boolean, store: LibrarySt
             Text("${entries.size} conversations", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
             Button(onClick = onImport, enabled = !busy) { Text("+ Import JSON") }
         }
-        if (showSearch) OutlinedTextField(value = query, onValueChange = { query = it }, placeholder = { Text("Search titles and messages") }, singleLine = true, modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp), shape = RoundedCornerShape(16.dp))
+
         if (entries.isEmpty() && !busy) Column(Modifier.fillMaxWidth().weight(1f), verticalArrangement = Arrangement.Center) {
             Text("Your conversations,\nready to read.", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(16.dp))
@@ -288,17 +277,12 @@ private fun Library(entries: List<LibraryEntry>, busy: Boolean, store: LibrarySt
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp), contentPadding = PaddingValues(bottom = 24.dp)) {
                 items(filtered, key = { it.id }) { entry ->
                     Card(onClick = { onOpen(entry) }, shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .5f))) {
-                        Column(Modifier.fillMaxWidth().padding(18.dp)) {
-                            Text(entry.conversation.title, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                            Text("${java.text.NumberFormat.getIntegerInstance().format(entry.conversation.wordCount())} words", style = MaterialTheme.typography.labelSmall)
-                            Spacer(Modifier.height(8.dp))
-                            Text(entry.conversation.messages.firstOrNull()?.let { it.versions[it.selected].parts.joinToString(" ") { p -> p.text } }.orEmpty(), maxLines = 2, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.height(14.dp))
-                            Text(entry.conversation.models.joinToString(" · ").ifBlank { "Model not recorded" }, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("${date(entry.conversation.createdAt)} · ${entry.conversation.messages.size} messages", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                                TextButton(onClick = { removing = entry }) { Text("Remove") }
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(entry.conversation.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                Text("${entry.conversation.wordCount()} words · ${entry.conversation.messages.size} messages · ${date(entry.conversation.createdAt)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
+                            TextButton(onClick = { removing = entry }) { Text("Remove", style = MaterialTheme.typography.labelSmall) }
                         }
                     }
                 }
@@ -309,7 +293,7 @@ private fun Library(entries: List<LibraryEntry>, busy: Boolean, store: LibrarySt
 }
 
 @Composable
-private fun ConversationView(entry: LibraryEntry, store: LibraryStore, fontSize: Float, collapsePrompts: Boolean, backRequest: Int, onBack: () -> Unit) {
+private fun ConversationView(entry: LibraryEntry, store: LibraryStore, fontSize: Float, collapsePrompts: Boolean, backRequest: Int, onBack: () -> Unit, onPreferences: () -> Unit) {
     val conversation = entry.conversation
     val list = rememberLazyListState(store.preferences.getInt("position_${entry.id}", 0).coerceIn(0, (conversation.messages.size - 1).coerceAtLeast(0)), store.preferences.getInt("offset_${entry.id}", 0))
     val scope = rememberCoroutineScope()
@@ -317,19 +301,19 @@ private fun ConversationView(entry: LibraryEntry, store: LibraryStore, fontSize:
     val groupStarts = remember(conversation) { conversation.messages.indices.map { index ->
         (index downTo 0).firstOrNull { conversation.messages[it].versions[conversation.messages[it].selected].role == "user" } ?: index
     } }
+    var query by rememberSaveable { mutableStateOf("") }
+    var searching by rememberSaveable { mutableStateOf(false) }
     var handledBack by remember { mutableIntStateOf(backRequest) }
     LaunchedEffect(backRequest) {
         if (backRequest != handledBack) {
             handledBack = backRequest
-            if (collapsePrompts && expanded.values.any { it }) {
+            if (searching) { searching = false; query = "" } else if (collapsePrompts && expanded.values.any { it }) {
                 val group = groupStarts.getOrNull(list.firstVisibleItemIndex) ?: 0
                 expanded.clear()
                 list.scrollToItem(group)
             } else onBack()
         }
     }
-    var query by rememberSaveable { mutableStateOf("") }
-    var searching by rememberSaveable { mutableStateOf(false) }
     var info by remember { mutableStateOf(false) }
     var hit by remember { mutableIntStateOf(-1) }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -375,13 +359,12 @@ private fun ConversationView(entry: LibraryEntry, store: LibraryStore, fontSize:
         }
     }
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-            TextButton(onClick = { searching = !searching; if (!searching) { query = ""; keyboard?.hide() } }) { Text(if (searching) "Close find" else "Find") }
-            TextButton(onClick = { info = true }) { Text("Conversation info") }
-            TextButton(onClick = { keyboard?.hide(); scope.launch { if (conversation.messages.isNotEmpty()) list.scrollToItem(conversation.messages.lastIndex, Int.MAX_VALUE) } }) { Text("End ↓") }
+        ReaderToolbar(searching, query, { query = it; hit = -1 }, { searching = true }, { searching = false; query = ""; keyboard?.hide() }, onPreferences, onBack = { if (searching) { searching = false; query = ""; keyboard?.hide() } else if (collapsePrompts && expanded.values.any { it }) { val group = groupStarts.getOrNull(list.firstVisibleItemIndex) ?: 0; expanded.clear(); scope.launch { list.scrollToItem(group) } } else onBack() })
+        Column(Modifier.fillMaxWidth().clickable { info = true }.padding(horizontal = 20.dp, vertical = 6.dp)) {
+            Text(conversation.title, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleLarge)
+            Text("${conversation.messages.size} messages · ${conversation.wordCount()} words · ${date(conversation.createdAt)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         }
         if (searching) Column(Modifier.padding(horizontal = 16.dp)) {
-            OutlinedTextField(query, onValueChange = { query = it; hit = -1 }, placeholder = { Text("Find in messages") }, singleLine = true, modifier = Modifier.fillMaxWidth())
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                 Text(if (query.isBlank()) "Enter text to find" else if (hits.isEmpty()) "No matches" else "${(hit + 1).coerceAtLeast(1)} of ${hits.size} matches", style = MaterialTheme.typography.labelMedium)
                 TextButton(enabled = hits.isNotEmpty(), onClick = { moveToMatch((hit - 1 + hits.size) % hits.size) }) { Text("‹ Previous") }
@@ -425,11 +408,36 @@ private fun ConversationView(entry: LibraryEntry, store: LibraryStore, fontSize:
             val previous = prompts.lastOrNull { it < list.firstVisibleItemIndex || (it == list.firstVisibleItemIndex && list.firstVisibleItemScrollOffset > 0) }
             val next = prompts.firstOrNull { it > list.firstVisibleItemIndex }
             TextButton(modifier = Modifier.weight(1f), enabled = previous != null, onClick = { keyboard?.hide(); scope.launch { list.animateScrollToItem(previous!!) } }) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("↑ Previous", maxLines = 1); Text("prompt", style = MaterialTheme.typography.labelSmall) } }
+            TextButton(onClick = { keyboard?.hide(); scope.launch { if (conversation.messages.isNotEmpty()) { if (collapsePrompts) expanded[groupStarts.last()] = true; list.scrollToItem(conversation.messages.lastIndex, Int.MAX_VALUE) } } }) { Text("End ↓") }
             TextButton(modifier = Modifier.weight(1f), enabled = next != null, onClick = { keyboard?.hide(); scope.launch { list.animateScrollToItem(next!!) } }) { Column(horizontalAlignment = Alignment.CenterHorizontally) { Text("Next ↓", maxLines = 1); Text("prompt", style = MaterialTheme.typography.labelSmall) } }
         }
     }
     if (info) AlertDialog(onDismissRequest = { info = false }, title = { Text("Conversation info") }, text = { SelectionContainer { Column(Modifier.verticalScroll(rememberScrollState())) {
-        Text("Created: ${date(conversation.createdAt)}\nMessages: ${conversation.messages.size}\n\nModels\n${conversation.models.joinToString("\n").ifBlank { "Not recorded" }}\n\nSystem prompt\n${conversation.systemPrompt.ifBlank { "Not recorded" }}")
+        Text("Created: ${date(conversation.createdAt)}\nMessages: ${conversation.messages.size}\nWords: ${conversation.wordCount()}\nFile: ${entry.fileName.ifBlank { "Not available" }}\nSize: ${entry.fileSize?.let { android.text.format.Formatter.formatShortFileSize(LocalContext.current, it) } ?: "Not available"}\n\nModels\n${conversation.models.joinToString("\n").ifBlank { "Not recorded" }}")
+        if (conversation.systemPrompt.isNotBlank()) Text("System prompt\n${conversation.systemPrompt}", Modifier.padding(top = 12.dp))
+        val context = LocalContext.current
+        var browserError by remember { mutableStateOf<String?>(null) }
+        entry.sourceUri?.let { uri ->
+            Button(onClick = {
+                val parent = runCatching {
+                    if (android.provider.DocumentsContract.isTreeUri(uri)) {
+                        val id = android.provider.DocumentsContract.getDocumentId(uri)
+                        android.provider.DocumentsContract.buildDocumentUriUsingTree(uri, id.substringBeforeLast('/', android.provider.DocumentsContract.getTreeDocumentId(uri)))
+                    } else null
+                }.getOrNull()
+                browserError = try {
+                    check(parent != null)
+                    val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).setDataAndType(parent, "vnd.android.document/directory").addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    context.startActivity(intent); null
+                } catch (_: Exception) {
+                    try {
+                        context.startActivity(android.content.Intent(android.content.Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(android.content.Intent.CATEGORY_OPENABLE).putExtra(android.provider.DocumentsContract.EXTRA_INITIAL_URI, parent ?: uri))
+                        null
+                    } catch (_: Exception) { "No compatible file browser is available. Open your Files app and locate ${entry.fileName}." }
+                }
+            }, modifier = Modifier.padding(top = 12.dp)) { Text("Show in file browser") }
+        }
+        browserError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     } } }, confirmButton = { TextButton(onClick = { info = false }) { Text("Done") } })
 }
 

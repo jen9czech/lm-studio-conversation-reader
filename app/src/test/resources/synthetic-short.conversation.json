@@ -1,0 +1,54 @@
+{
+  "name": "Example conversation",
+  "messages": [
+    {
+      "versions": [
+        {
+          "type": "singleStep",
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "Show a sample reply."
+            }
+          ]
+        }
+      ],
+      "currentlySelected": 0
+    },
+    {
+      "versions": [
+        {
+          "type": "multiStep",
+          "role": "assistant",
+          "steps": [
+            {
+              "type": "contentBlock",
+              "content": [
+                {
+                  "type": "text",
+                  "text": "A **formatted reply**."
+                }
+              ],
+              "genInfo": {
+                "identifier": "skyfall-31b-v4.2@q5_k_m",
+                "stats": {
+                  "stopReason": "eosFound",
+                  "tokensPerSecond": 3.185961636283212,
+                  "timeToFirstTokenSec": 1.751851,
+                  "totalTimeSec": 88.695773,
+                  "predictedTokensCount": 278
+                }
+              }
+            },
+            {
+              "type": "debugInfoBlock",
+              "debugInfo": "Synthetic debug information"
+            }
+          ]
+        }
+      ],
+      "currentlySelected": 0
+    }
+  ]
+}

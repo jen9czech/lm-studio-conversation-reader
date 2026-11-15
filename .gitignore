@@ -1,0 +1,15 @@
+.tools/
+.gradle/
+.kotlin/
+**/build/
+local.properties
+*.jks
+.idea/
+*.keystore
+/dist/
+/*.json
+/*.jpeg
+/*.jpg
+/*.png
+/app/src/test/resources/short.conversation.json
+/app/src/test/resources/long.conversation.json

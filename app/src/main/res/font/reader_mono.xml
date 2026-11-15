@@ -1,0 +1,6 @@
+<font-family xmlns:android="http://schemas.android.com/apk/res/android">
+    <font android:font="@font/courier_prime_regular" android:fontWeight="400" android:fontStyle="normal" />
+    <font android:font="@font/courier_prime_bold" android:fontWeight="700" android:fontStyle="normal" />
+    <font android:font="@font/courier_prime_italic" android:fontWeight="400" android:fontStyle="italic" />
+    <font android:font="@font/courier_prime_bolditalic" android:fontWeight="700" android:fontStyle="italic" />
+</font-family>

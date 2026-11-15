@@ -1,9 +1,21 @@
 package cz.jan.conversationreader
 
 data class SearchMatch(val message: Int, val version: Int, val part: Int, val start: Int, val end: Int)
+private val combiningMarks = Regex("\\p{M}+")
 
-fun matchRanges(text: CharSequence, query: String): List<IntRange> {
+fun matchRanges(text: CharSequence, query: String, ignoreDiacritics: Boolean = false): List<IntRange> {
     if (query.isBlank()) return emptyList()
+    if (ignoreDiacritics) {
+        val mapped = StringBuilder()
+        val indexes = mutableListOf<Int>()
+        text.forEachIndexed { index, character ->
+            val normalized = if (character.code < 128) character.toString() else java.text.Normalizer.normalize(character.toString(), java.text.Normalizer.Form.NFD).replace(combiningMarks, "")
+            normalized.forEach { mapped.append(it); indexes += index }
+        }
+        val normalizedQuery = java.text.Normalizer.normalize(query, java.text.Normalizer.Form.NFD).replace(combiningMarks, "")
+        if (normalizedQuery.isBlank()) return emptyList()
+        return matchRanges(mapped, normalizedQuery).map { indexes[it.first]..indexes[it.last] }
+    }
     val result = mutableListOf<IntRange>()
     var start = text.indexOf(query, ignoreCase = true)
     while (start >= 0) {

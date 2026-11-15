@@ -3,7 +3,7 @@ package cz.jan.conversationreader
 import org.json.JSONArray
 import org.json.JSONObject
 
-data class Conversation(val title: String, val createdAt: Long?, val systemPrompt: String, val messages: List<Message>) {
+data class Conversation(val title: String, val createdAt: Long?, val systemPrompt: String, val messages: List<Message>, val savedTokenCount: Long? = null) {
     val models get() = messages.flatMap { it.versions }.flatMap { it.parts }.mapNotNull { it.model }.distinct()
     val searchable get() = title + "\n" + messages.flatMap { it.versions }.flatMap { it.parts }.joinToString("\n") { it.text }
 }
@@ -43,7 +43,7 @@ object ConversationParser {
             }
             Message(versions, message.optInt("currentlySelected", 0).coerceIn(versions.indices))
         }
-        return Conversation(root.optString("name").ifBlank { "Untitled conversation" }, root.number("createdAt")?.toLong(), root.optString("systemPrompt"), parsed)
+        return Conversation(root.optString("name").ifBlank { "Untitled conversation" }, root.number("createdAt")?.toLong(), root.optString("systemPrompt"), parsed, root.number("tokenCount")?.toLong())
     }
     private fun content(value: Any?): String = when (value) {
         is String -> value

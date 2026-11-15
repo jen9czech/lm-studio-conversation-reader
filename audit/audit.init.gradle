@@ -1,0 +1,15 @@
+// Optional test-only harness. Does not change APK dependencies or version.
+gradle.afterProject { project, state ->
+    if (project.path == ':app') {
+        project.android.testOptions.unitTests.includeAndroidResources = true
+        project.android.sourceSets.getByName('test').java.srcDir(new File(project.rootDir, 'audit/tests'))
+        project.android.sourceSets.getByName('test').manifest.srcFile(new File(project.rootDir, 'app/src/main/AndroidManifest.xml'))
+        project.dependencies.add('testImplementation', 'org.robolectric:robolectric:4.16.1')
+        project.dependencies.add('testImplementation', 'androidx.compose.ui:ui-test-junit4')
+        project.tasks.withType(Test).configureEach {
+            maxHeapSize = '2g'
+            jvmArgs '--add-opens=java.base/java.lang=ALL-UNNAMED', '--add-opens=java.base/java.util=ALL-UNNAMED', '--add-opens=java.base/java.io=ALL-UNNAMED'
+            systemProperty 'robolectric.dependency.repo.url', 'https://repo.maven.apache.org/maven2'
+        }
+    }
+}

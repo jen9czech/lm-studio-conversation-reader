@@ -1,0 +1,243 @@
+{
+  "appVersion": "0.7.4",
+  "simulatedAndroidApi": 35,
+  "physicalDeviceTested": false,
+  "tests": [
+    {
+      "name": "cz.jan.conversationreader.ArchiveStressAuditTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "parsesAndSearchesLargeSyntheticArchive",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "caseInsensitiveCzechSearchKeepsCharacterOffsets",
+          "passed": true,
+          "failure": null
+        }
+      ],
+      "hostMeasurements": [
+        "AUDIT synthetic=348438 chars messages=1000 parseMs=33.4791 searchMs=24.4738; host JVM, not phone performance"
+      ]
+    },
+    {
+      "name": "cz.jan.conversationreader.ConversationMetricsTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "tokenTotalsUseSavedCountAndSelectedRepliesWithoutRepeatedPromptTokens",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "folderCountsIncludeDescendantsButNotDirectories",
+          "passed": true,
+          "failure": null
+        }
+      ],
+      "hostMeasurements": []
+    },
+    {
+      "name": "cz.jan.conversationreader.ConversationParserTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "unrelatedJsonRejected",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "emptyConversationAndBomSupported",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "screenshotExampleMatchesActualGenerationStatistics",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "emptyVersionsRejected",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "multiTurnVersionsUnknownBlocksAndMissingMetadataArePreserved",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "longExamplePreservesTextAndModel",
+          "passed": true,
+          "failure": null
+        }
+      ],
+      "hostMeasurements": []
+    },
+    {
+      "name": "cz.jan.conversationreader.MetadataCacheTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "unchangedFilesReuseMetadata",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "changedFilesInvalidateMetadata",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "missingProviderMetadataCannotBeTrusted",
+          "passed": true,
+          "failure": null
+        }
+      ],
+      "hostMeasurements": []
+    },
+    {
+      "name": "cz.jan.conversationreader.NativeReaderAuditTest",
+      "tests": 7,
+      "failures": 1,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "nativeMarkdownPreservesCzechTextAndFormatting",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "collapseBackKeepsReaderBeforeReturningToLibrary",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "nativeLongReplyLayoutReportsHostCost",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "importedConversationOpensAndSearchFindsRenderedReply",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "importedLibraryCopyReadableThroughHostProviderAdapter",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "mainSearchBackExitsAndSettingsShowsVersion",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "linkedReaderSurvivesActivityRecreation",
+          "passed": false,
+          "failure": "java.lang.AssertionError: Failed: assertExists.\nReason: Expected exactly '1' node but could not find any node that satisfies: (ContentDescription = 'Back' (ignoreCase: false))\n"
+        }
+      ],
+      "hostMeasurements": [
+        "AUDIT Markwon chars=52618 renderMs=125.869 layoutMs=548.8592 height=52645; simulated Android on host, not phone frames",
+        "AUDIT Markwon chars=210538 renderMs=461.3131 layoutMs=1639.9868 height=210565; simulated Android on host, not phone frames"
+      ]
+    },
+    {
+      "name": "cz.jan.conversationreader.ReaderSearchTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "progressMovesWithinLongRepliesAndHandlesBoundaries",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "matchesEveryOccurrenceCaseInsensitively",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "matchesRetainVersionPartAndVisibleTextOffsets",
+          "passed": true,
+          "failure": null
+        }
+      ],
+      "hostMeasurements": []
+    },
+    {
+      "name": "cz.jan.conversationreader.ScrollTargetTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "seeksWithinOneLongReply",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "handlesEmptyCollapsedAndEndPositions",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "seeksPastPromptIntoLongReply",
+          "passed": true,
+          "failure": null
+        }
+      ],
+      "hostMeasurements": []
+    },
+    {
+      "name": "cz.jan.conversationreader.StorageAuditTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "changedSizeAndTimestampInvalidateIndex",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "unchangedScanDoesNotReopenJsonAndLinkedReadCreatesNoImport",
+          "passed": true,
+          "failure": null
+        },
+        {
+          "name": "corruptFileKeepsFilenameAndDoesNotCrashWholeScan",
+          "passed": true,
+          "failure": null
+        }
+      ],
+      "hostMeasurements": []
+    },
+    {
+      "name": "cz.jan.conversationreader.TextLengthTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "countsSelectedPromptAndReplyTextOnly",
+          "passed": true,
+          "failure": null
+        }
+      ],
+      "hostMeasurements": []
+    }
+  ]
+}

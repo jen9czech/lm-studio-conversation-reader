@@ -1,39 +1,66 @@
 # LM Studio Conversation Reader
 
-An offline Android app for reading conversations saved by LM Studio. Compatible with **LM Studio 0.4.28 (Build 2)** conversation JSON files. Browse your chat archive and read formatted prompts and replies without running a model or connecting to LM Studio.
+**A pocket library for your LM Studio conversations.**
 
-## Features
+Take your stories, research, coding answers and late-night rabbit holes with you. Conversation Reader turns saved LM Studio chats into a comfortable Android reading experience, with formatted replies, a searchable library and a place waiting for you when you come back.
 
-- **Formatted conversations:** Markdown replies, tables, code blocks, and selectable text with copy actions.
-- **Flexible library:** browse a linked folder and its subfolders, or import individual conversation files.
-- **Offline full-text search:** search titles and conversation contents in linked and imported files, preview matching excerpts, and open the matching passage. In-document search includes a result counter, previous/next arrows, and accent-insensitive matching.
-- **Easy navigation:** browse prompts and Markdown headings in Contents, collapse prompt groups, or use the draggable scroll slider. Sort folders and files by date, title, or length.
-- **Pick up where you left off:** Continue reading, recently opened conversations and a dedicated Bookmarked view. A single star adds or removes a conversation. Search and navigation keep a separate return-to-reading position.
-- **Comfortable reading:** adjustable text size, bundled Sans-serif/Serif/Monospaced fonts with Settings previews, compact fixed spacing and margins, and light/dark/system themes. Reading positions use text anchors to survive layout changes; linked conversations reopen after activity recreation.
-- **Conversation details:** model names, word counts, saved token totals, file information, and generation statistics when available. Open the source text in an external reader.
-- **Message versions:** read alternate prompts and replies saved in the conversation.
+**Offline. Private. Open source.** No account or connection to LM Studio required.
 
-## Install
+[**Download the Android APK**](https://github.com/jen9czech/lm-studio-conversation-reader/releases/latest) · Android 8.0+ · [MIT license](LICENSE)
 
-Download the APK from [Releases](https://github.com/jen9czech/lm-studio-conversation-reader/releases/latest) and open it on your Android phone. Android 8.0 or later is required. Android may ask you to allow installation from your file manager.
+Compatible with **LM Studio 0.4.28 (Build 2)** conversation JSON files.
+
+## A look inside
+
+<table>
+  <tr>
+    <th>Your library</th>
+    <th>Time to read</th>
+    <th>Make it comfortable</th>
+  </tr>
+  <tr>
+    <td><img src="docs/screenshots/library.png" width="260" alt="Linked-folder library with folder counts and Continue reading"></td>
+    <td><img src="docs/screenshots/reading.png" width="260" alt="A formatted conversation with prompt, Markdown reply and reading navigation"></td>
+    <td><img src="docs/screenshots/settings.png" width="260" alt="Settings for linked folders, collapsed prompts and text size"></td>
+  </tr>
+</table>
+
+## Give your conversations a second life
+
+- **Bring the whole archive.** Link a folder on your phone and browse its original subfolders, or see every conversation in one list. Titles come from the conversation itself. Folder counts and sorting by date, name or length help you find your way.
+- **Read comfortably.** Enjoy Markdown headings, tables, code blocks and selectable text. Choose Liberation Sans, Times-like Liberation Serif or Courier Prime, adjust the text size, and switch between light, dark and system themes.
+- **Find that answer again.** Search titles and conversation contents offline, see matching snippets, and jump to highlighted results. Search inside a conversation with a result counter and previous/next controls; accent-insensitive matching helps with Czech text too.
+- **Pick up where you left off.** Continue reading and Recent bring you back to your archive. A single star saves a conversation to Bookmarked. Remembered text positions and a separate Return to reading action help you keep your place while exploring search results or chapters.
+- **Move through long conversations.** Collapse prompt-and-reply groups, jump through prompts and headings in Contents, or drag the scroll slider. Reading progress and navigation stay together at the bottom.
+- **Keep the useful details.** Inspect model names, word counts, saved token totals and generation statistics when available. Read alternate saved message versions, copy text or code, and open a source file in an external reader.
+
+All of this works on your phone, without running a model. Your next great reading session might already be sitting in your conversations folder.
+
+## Start reading in a minute
+
+1. Download the APK from [Releases](https://github.com/jen9czech/lm-studio-conversation-reader/releases/latest) and open it on your phone. Android may ask you to allow installation from your file manager.
+2. Copy your LM Studio conversation files from your PC to a dedicated phone folder, then link that folder in Settings. You can also import individual files.
+3. Open a conversation and read. Star the ones you want to revisit.
+
+After copying more files, restart the app or choose **Update index now** in Settings. The library also checks the linked folder at startup and after changing folders. Cached metadata speeds up later scans; indexing shows progress and per-file errors.
 
 Install updates over the existing app to retain your library and preferences. Published APKs are debug-signed testing builds; in-place updates require the same signing certificate.
 
-## Add conversations
+## Your files stay yours
 
-**Link a folder** containing your LM Studio conversation files to browse them in their original folder structure or as a single list. Folder counts include conversation files in nested subfolders. Both folder and flat-list views support sorting; folder length uses the combined word count of descendant files. Linked files open directly and remain unchanged. The app checks the folder at startup and caches file information for faster loading. After copying new files from your PC, restart the app or use **Update index now** in Settings. Indexing shows progress and per-file errors.
+Linked conversations open directly and remain unchanged. Importing an individual file creates an independent local copy in Imported; simply opening a linked conversation does not import it.
 
-**Import individual files** to keep independent local copies in the Imported library. Opening a linked file does not import it.
+The app has **no Internet permission**, accounts, telemetry or cloud backup. Its search index stays on the device. Web and email links open external apps only when you select them.
 
-Both `.json` and `.conversation` filenames are supported, with a 20 MB limit per file. Files must contain LM Studio conversation JSON.
+## Compatibility and scope
 
-## Privacy and limitations
+- Reads LM Studio conversation JSON in `.json` and `.conversation` files, up to 20 MB per file.
+- Tested with **LM Studio 0.4.28 (Build 2)** files. Available metadata depends on what LM Studio saved.
+- Designed for reading saved conversations. It does not generate replies, edit conversations or synchronize files with your PC.
+- Image attachments and LaTeX rendering are not supported. Word counts and reading progress are approximate.
 
-Conversations stay on your device. The app has no Internet permission, accounts, telemetry, or cloud backup. A private local search index stores searchable text separately from the Imported library. Web and email links open external apps when selected.
-
-This is a reader: it does not generate replies, edit conversations, or synchronize files with your PC. Image attachments and LaTeX rendering are not supported. Word counts and reading progress are approximate. Available metadata depends on what LM Studio saved in the file.
-
-## Build from source
+<details>
+<summary><strong>Build from source and run checks</strong></summary>
 
 Open the project in Android Studio, or configure JDK 17 and Android SDK 36 with Build Tools 35.0.0. Set the SDK location in an untracked `local.properties` file or through `ANDROID_HOME`.
 
@@ -51,8 +78,12 @@ sh gradlew assembleDebug testDebugUnitTest lintDebug
 
 The Gradle wrapper downloads the required build dependencies. The APK is generated at `app/build/outputs/apk/debug/app-debug.apk`.
 
-Tests use synthetic conversations and cover parsing, message versions, search, reading anchors, text chunking, scrolling geometry, word counts, folder counts, token totals, and metadata caching. The optional [Android simulation suite](audit/README.md) also covers lifecycle restoration, library search, star bookmarks, legacy bookmark migration, local indexing, and native text rendering. Layout and touch gestures should also be tested on an Android device.
+Tests use synthetic conversations. The optional [Android simulation suite](audit/README.md) also checks navigation, search, bookmarks, reading-position restoration, indexing and native font rendering. GitHub Actions runs build, test and lint checks. Layout, touch gestures and file-manager integration should also be checked on an Android device.
 
-## License
+</details>
 
-[MIT](LICENSE). Bundled Liberation and Courier Prime fonts use the SIL Open Font License; see [font notices](THIRD_PARTY_NOTICES.md). This is an independent project and is not affiliated with LM Studio.
+## License and credits
+
+[MIT](LICENSE). Bundled Liberation and Courier Prime fonts use the SIL Open Font License; see [font notices](THIRD_PARTY_NOTICES.md).
+
+An independent project, made for LM Studio readers and not affiliated with LM Studio.

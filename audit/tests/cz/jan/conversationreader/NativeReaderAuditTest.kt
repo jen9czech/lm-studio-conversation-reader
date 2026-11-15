@@ -52,6 +52,25 @@ class NativeReaderAuditTest {
         }
     }
 
+    @Test fun mainIconMenuListsViewsOpensSettingsAndShowsVersionLast() {
+        ActivityScenario.launch(MainActivity::class.java).use {
+            for (view in LibraryViews) {
+                compose.onNodeWithContentDescription("Open navigation menu").performClick()
+                LibraryViews.forEach { item -> compose.onNode(hasText(item) and hasAnyAncestor(isPopup())).assertIsDisplayed() }
+                val version = compose.onNodeWithText("Version ${BuildConfig.VERSION_NAME}").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+                val settings = compose.onNode(hasText("Settings") and hasAnyAncestor(isPopup())).fetchSemanticsNode().boundsInRoot
+                assertTrue("Version belongs below Settings", version.top >= settings.bottom)
+                compose.onNode(hasText(view) and hasAnyAncestor(isPopup())).performClick()
+                compose.onAllNodes(isPopup()).assertCountEquals(0)
+                compose.onNodeWithText(view).assertIsSelected()
+            }
+            compose.onNodeWithContentDescription("Open navigation menu").performClick()
+            compose.onNode(hasText("Settings") and hasAnyAncestor(isPopup())).performClick()
+            compose.onNodeWithText("Settings").assertIsDisplayed()
+            compose.onAllNodes(isPopup()).assertCountEquals(0)
+        }
+    }
+
     @Test fun importedConversationOpensAndSearchFindsRenderedReply() {
         seed()
         ActivityScenario.launch(MainActivity::class.java).use {
@@ -120,7 +139,7 @@ class NativeReaderAuditTest {
             assertEquals(before.message, after.message)
             assertTrue("Restore should stay within one line of the saved passage: $before -> $after", kotlin.math.abs(before.character - after.character) < 100)
             compose.onNodeWithText("Aa").performClick()
-            compose.onNodeWithText("Serif").performScrollTo().performClick()
+            compose.onNodeWithText("Liberation Serif").performScrollTo().performClick()
             compose.onAllNodesWithContentDescription("Back").onLast().performClick()
             compose.waitForIdle()
             assertTrue("Font changes must keep the same passage", kotlin.math.abs(before.character - store.reading.anchor(id)!!.character) < 100)
@@ -200,7 +219,7 @@ class NativeReaderAuditTest {
             compose.onNodeWithText("Audit conversation").performClick()
             for (font in listOf("Serif", "Monospaced", "Sans-serif")) {
                 compose.onNodeWithText("Aa").performClick()
-                compose.onNodeWithText(font).performScrollTo().performClick()
+                compose.onNodeWithText(readerFontName(font)).performScrollTo().performClick()
                 compose.onAllNodesWithContentDescription("Back").onLast().performClick()
                 compose.waitForIdle()
                 scenario.onActivity { activity ->

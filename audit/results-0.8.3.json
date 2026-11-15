@@ -1,15 +1,15 @@
 {
   "appVersion": "0.8.3",
   "versionCode": 18,
-  "date": "2026-11-15",
+  "date": "2026-11-16",
   "simulatedAndroidApi": 35,
   "physicalDeviceTested": false,
   "regularTestsPassed": 22,
-  "expandedTestsPassed": 47,
+  "expandedTestsPassed": 48,
   "lintErrors": 0,
   "lintWarnings": 29,
   "sameSigningCertificateAs": "0.8.2",
-  "apkSha256": "b9e29af75a48f41c30589be917c71b6a43224a777d87cbfca49d0e9aebc812eb",
+  "apkSha256": "0c6a4f678531e224b0d3ca0a9e6a79534a48f2af4e3dd28f3c24a57591d1bbc2",
   "tests": [
     {
       "name": "cz.jan.conversationreader.ArchiveStressAuditTest",
@@ -97,7 +97,7 @@
     },
     {
       "name": "cz.jan.conversationreader.NativeReaderAuditTest",
-      "tests": 12,
+      "tests": 13,
       "failures": 0,
       "errors": 0,
       "cases": [
@@ -143,6 +143,10 @@
         },
         {
           "name": "libraryFullTextSearchOpensTheMatchingReaderHit",
+          "passed": true
+        },
+        {
+          "name": "mainIconMenuListsViewsOpensSettingsAndShowsVersionLast",
           "passed": true
         },
         {

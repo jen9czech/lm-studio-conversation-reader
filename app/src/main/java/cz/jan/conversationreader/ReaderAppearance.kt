@@ -60,6 +60,8 @@ private fun bundledFamily(regular: Int, bold: Int, italic: Int, boldItalic: Int)
 private val sansFamily = bundledFamily(R.font.liberation_sans_regular, R.font.liberation_sans_bold, R.font.liberation_sans_italic, R.font.liberation_sans_bolditalic)
 private val serifFamily = bundledFamily(R.font.liberation_serif_regular, R.font.liberation_serif_bold, R.font.liberation_serif_italic, R.font.liberation_serif_bolditalic)
 private val monoFamily = bundledFamily(R.font.courier_prime_regular, R.font.courier_prime_bold, R.font.courier_prime_italic, R.font.courier_prime_bolditalic)
+internal fun readerFontName(font: String): String = when (font) { "Serif" -> "Liberation Serif"; "Monospaced" -> "Courier Prime"; else -> "Liberation Sans" }
+
 internal fun readerFontFamily(font: String): FontFamily = when (font) { "Serif" -> serifFamily; "Monospaced" -> monoFamily; else -> sansFamily }
 
 /** Check the actual view after binding; renderer/selection changes can invalidate cached font flags. */

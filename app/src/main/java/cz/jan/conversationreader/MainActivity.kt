@@ -187,6 +187,11 @@ private fun Library(entries: List<LibraryEntry>, busy: Boolean, store: LibrarySt
     fun rememberFolderPosition() {
         if (source in listOf("Folders", "All files")) folderPositions = (folderPositions + ("$source:$path" to listOf(linkedList.firstVisibleItemIndex, linkedList.firstVisibleItemScrollOffset))).entries.toList().takeLast(100).associate { it.key to it.value }
     }
+    fun selectView(mode: String) {
+        rememberFolderPosition()
+        source = mode
+        if (mode in listOf("Folders", "All files")) pendingPosition = folderPositions["$mode:$path"] ?: listOf(0, 0)
+    }
     fun navigateFolder(destination: String) {
         rememberFolderPosition()
         path = destination
@@ -255,7 +260,7 @@ private fun Library(entries: List<LibraryEntry>, busy: Boolean, store: LibrarySt
         }
     } }.filter { !showSearch || query.isBlank() || store.referenceId(it.reference) in indexHits || it.title.contains(query, true) }
     Column(Modifier.fillMaxSize()) {
-        ReaderToolbar(showSearch && visibleScreen, query, onQuery, onSearch, onCloseSearch, onSettings, title = "Conversation Reader")
+        ReaderToolbar(showSearch && visibleScreen, query, onQuery, onSearch, onCloseSearch, onSettings, title = "Conversation Reader", currentView = source, onMenuView = { selectView(it) })
         val total = when (source) { "Imported" -> filtered.size; "Recent", "Bookmarked" -> cards.size; else -> resultCount }
         if (showSearch) SearchResultsBar(searchItem.coerceAtMost((total - 1).coerceAtLeast(0)), total,
             onPrevious = { searchItem = (searchItem - 1 + total) % total; searchScope.launch { (if (source in listOf("Imported", "Recent", "Bookmarked")) importedList else linkedList).animateScrollToItem(searchItem) } },
@@ -264,10 +269,7 @@ private fun Library(entries: List<LibraryEntry>, busy: Boolean, store: LibrarySt
 
         Spacer(Modifier.height(12.dp))
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf("Folders", "All files", "Imported", "Recent", "Bookmarked").forEach { mode -> FilterChip(selected = source == mode, onClick = {
-                rememberFolderPosition(); source = mode
-                if (mode in listOf("Folders", "All files")) pendingPosition = folderPositions["$mode:$path"] ?: listOf(0, 0)
-            }, label = { Text(mode) }) }
+            LibraryViews.forEach { mode -> FilterChip(selected = source == mode, onClick = { selectView(mode) }, label = { Text(mode) }) }
         }
         if (!showSearch && source !in listOf("Recent", "Bookmarked") && recent.isNotEmpty()) {
             val last = recent.first()

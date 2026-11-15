@@ -15,9 +15,9 @@ The first command runs the regular build, unit tests, and lint. The second adds 
 
 ## Current result
 
-App version **0.8.3 passes all 47 expanded tests**, including 22 regular tests. See [release verification](VERIFICATION-0.8.3.md) and [machine-readable results](results-0.8.3.json).
+App version **0.8.3 passes all 48 expanded tests**, including 22 regular tests. See [release verification](VERIFICATION-0.8.3.md) and [machine-readable results](results-0.8.3.json).
 
-The font rendering check verifies three distinct glyph images, fixed character widths for Monospaced, and Czech glyph support. The native view test switches all three bundled font families. Layout checks cover left-aligned progress in the shared bottom navigation row and message/word metadata appearing only in collapsed view. Existing bookmarking, search-keyboard, lifecycle, passage restoration, indexing, appearance, parsing, and navigation checks pass.
+The main-icon menu regression verifies all five views, view selection, Settings access, popup dismissal and the version footer. The font rendering check verifies three distinct glyph images, fixed character widths for Monospaced, and Czech glyph support. The native view test switches all three bundled font families. Layout checks cover left-aligned progress in the shared bottom navigation row and message/word metadata appearing only in collapsed view. Existing bookmarking, search-keyboard, lifecycle, passage restoration, indexing, appearance, parsing, and navigation checks pass.
 
 Historical reports remain available for earlier versions.
 

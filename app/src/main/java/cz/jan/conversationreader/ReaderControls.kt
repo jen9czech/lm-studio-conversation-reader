@@ -13,6 +13,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -31,8 +33,11 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
+internal val LibraryViews = listOf("Folders", "All files", "Imported", "Recent", "Bookmarked")
+
 @Composable
-fun ReaderToolbar(searching: Boolean, query: String, onQuery: (String) -> Unit, onSearch: () -> Unit, onCloseSearch: () -> Unit, onPreferences: () -> Unit, title: String? = null, subtitle: String? = null, onBack: (() -> Unit)? = null, extraActions: @Composable RowScope.() -> Unit = {}) {
+fun ReaderToolbar(searching: Boolean, query: String, onQuery: (String) -> Unit, onSearch: () -> Unit, onCloseSearch: () -> Unit, onPreferences: () -> Unit, title: String? = null, subtitle: String? = null, onBack: (() -> Unit)? = null, extraActions: @Composable RowScope.() -> Unit = {}, currentView: String? = null, onMenuView: ((String) -> Unit)? = null) {
+    var menuOpen by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
@@ -46,7 +51,22 @@ fun ReaderToolbar(searching: Boolean, query: String, onQuery: (String) -> Unit, 
             IconButton(onClick = { onQuery("") }) { Icon(painterResource(R.drawable.ic_close), "Clear search") }
         } else {
             if (onBack != null) IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_back), "Back") }
-            else Icon(painterResource(R.drawable.ic_reader), "LM Conversation Reader", tint = androidx.compose.ui.graphics.Color.Unspecified, modifier = Modifier.padding(end = 8.dp).size(48.dp))
+            else Box(Modifier.padding(end = 8.dp)) {
+                if (onMenuView != null) {
+                    IconButton(onClick = { menuOpen = true }) {
+                        Icon(painterResource(R.drawable.ic_reader), "Open navigation menu", tint = androidx.compose.ui.graphics.Color.Unspecified, modifier = Modifier.size(48.dp))
+                    }
+                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                        LibraryViews.forEach { view ->
+                            DropdownMenuItem(text = { Text(view) }, leadingIcon = { Text(if (view == currentView) "✓" else "", Modifier.width(24.dp)) }, modifier = Modifier.semantics { selected = view == currentView }, onClick = { menuOpen = false; onMenuView(view) })
+                        }
+                        HorizontalDivider()
+                        DropdownMenuItem(text = { Text("Settings") }, leadingIcon = { Icon(painterResource(R.drawable.ic_settings), null) }, onClick = { menuOpen = false; onPreferences() })
+                        HorizontalDivider()
+                        Text("Version ${BuildConfig.VERSION_NAME}", Modifier.padding(horizontal = 16.dp, vertical = 12.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                } else Icon(painterResource(R.drawable.ic_reader), "LM Conversation Reader", tint = androidx.compose.ui.graphics.Color.Unspecified, modifier = Modifier.size(48.dp))
+            }
             Column(Modifier.weight(1f)) {
                 if (title != null) Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -115,10 +135,8 @@ fun PreferencesScreen(main: Boolean, folder: String?, fontSize: Float, theme: St
                                 Row(Modifier.fillMaxWidth().selectable(selected = style.font == font, role = Role.RadioButton, onClick = { onStyle(style.copy(font = font)) }).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                     RadioButton(selected = style.font == font, onClick = null)
                                     Column(Modifier.padding(start = 8.dp)) {
-                                        Text(font, fontFamily = readerFontFamily(font), fontSize = 20.sp)
-                                        Text("The quick brown fox", fontFamily = readerFontFamily(font), fontSize = 20.sp)
-                                        Text("Aa Bb 012345 · Žluťoučký kůň", fontFamily = readerFontFamily(font), fontSize = 18.sp)
-                                        Text(when (font) { "Serif" -> "Times New Roman style · Liberation Serif"; "Monospaced" -> "Courier style · Courier Prime"; else -> "Arial style · Liberation Sans" }, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text(readerFontName(font), fontFamily = readerFontFamily(font), fontSize = 20.sp)
+                                        Text("The quick brown fox", fontFamily = readerFontFamily(font), fontSize = 20.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                 }
                             }

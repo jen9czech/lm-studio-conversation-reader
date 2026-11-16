@@ -131,4 +131,57 @@ class ReadingFeaturesAuditTest {
             outputStream().use { preview.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
         }
     }
+
+    @Test fun thinkingDefaultsToClosedAndUsesTheMarkdownRenderer() {
+        val conversation = ConversationParser.parse("""{"messages":[{"versions":[{"role":"assistant","content":"<think>## Plan\n\n**Compare** and `check`.\n\n- First\n- Second</think>\nThe final answer."}]}]}""")
+        val rendered = mapOf(0 to ReadingRenderCache(conversation, createMarkdownRenderer(context)).version(0, 0))
+        val thinking = rendered.getValue(0).parts.first()
+        assertTrue(thinking.thinking)
+        assertFalse(thinking.text.toString().contains("**"))
+        assertFalse(thinking.text.toString().contains("##"))
+        assertTrue(thinking.text.getSpans(0, thinking.text.length, android.text.style.MetricAffectingSpan::class.java).isNotEmpty())
+        val closed = readerRows(conversation, mapOf(0 to 0), rendered, listOf(0), emptyList(), false)
+        assertEquals(1, closed.count { it.kind == "thinking" })
+        assertTrue(closed.filter { it.kind == "text" }.all { it.block!!.part == 1 })
+        val open = readerRows(conversation, mapOf(0 to 0), rendered, listOf(0), emptyList(), false, setOf("0:0:0"))
+        assertTrue(open.any { it.block?.part == 0 })
+        assertEquals(1, open.count { it.kind == "thinkingEnd" })
+        assertTrue(closed.none { it.kind == "thinkingEnd" })
+        assertEquals("Plan", thinking.headings.single().label)
+    }
+
+    @Test fun thinkingParagraphSpacingIncreasesHeightWithoutChangingOffsetsOrCode() {
+        val renderer = createMarkdownRenderer(context)
+        val source = renderer.toMarkdown("First paragraph.\n\nSecond paragraph.")
+        val spaced = thinkingParagraphSpacing(source, 12)
+        assertEquals(source.toString(), spaced.toString())
+        assertTrue(spaced.getSpans(0, spaced.length, ThinkingParagraphGap::class.java).isNotEmpty())
+        fun height(text: CharSequence): Int {
+            val view = android.widget.TextView(context).apply { textSize = 17f; this.text = text }
+            view.measure(android.view.View.MeasureSpec.makeMeasureSpec(400, android.view.View.MeasureSpec.EXACTLY), android.view.View.MeasureSpec.makeMeasureSpec(0, android.view.View.MeasureSpec.UNSPECIFIED))
+            return view.measuredHeight
+        }
+        assertTrue(height(spaced) > height(source))
+        val code = thinkingParagraphSpacing(renderer.toMarkdown("```python\nfirst\n\nsecond\n```"), 12)
+        assertTrue(code.getSpans(0, code.length, ThinkingParagraphGap::class.java).isEmpty())
+    }
+
+    @Test fun styledThinkingWithRedundantTagsStillRendersMarkdownHeadings() {
+        val conversation = ConversationParser.parse("""{"messages":[{"versions":[{"role":"assistant","steps":[{"type":"contentBlock","style":{"type":"thinking"},"content":"<think>\n## Plan\n\n**Compare** the options.\n</think>"},{"type":"contentBlock","content":"Final answer"}]}]}]}""")
+        val part = ReadingRenderCache(conversation, createMarkdownRenderer(context)).version(0, 0).parts.first()
+        assertEquals(listOf("Plan"), part.headings.map { it.label })
+        assertFalse(part.text.contains("<think>"))
+        assertFalse(part.text.contains("##"))
+        assertFalse(part.text.contains("**"))
+    }
+
+    @Test fun overindentedThinkingListsRenderAsListsAndBoldInsteadOfCode() {
+        val text = "Planning a story.\n\n        *   First idea.\n        *   Second idea.\n\n    *   *Characters:* A detective and a guide.\n    *   **Chapter 1: The Arrival.** Meet the characters."
+        val conversation = ConversationParser.parse("""{"messages":[{"versions":[{"role":"assistant","steps":[{"type":"contentBlock","style":{"type":"thinking"},"content":${org.json.JSONObject.quote(text)}}]}]}]}""")
+        val part = ReadingRenderCache(conversation, createMarkdownRenderer(context)).version(0, 0).parts.single()
+        assertTrue("Overindented prose lists should not become code blocks", part.code.isEmpty())
+        assertFalse(part.text.contains("**Chapter"))
+        assertFalse(part.text.contains("*Characters:*"))
+        assertTrue(part.text.contains("Chapter 1: The Arrival."))
+    }
 }

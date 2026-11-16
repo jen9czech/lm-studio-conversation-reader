@@ -9,7 +9,6 @@ import androidx.core.view.doOnLayout
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -45,7 +44,11 @@ fun ConversationReader(entry: LibraryEntry, store: LibraryStore, fontSize: Float
     val cache = remember(entry.id) { ReadingRenderCache(conversation, createMarkdownRenderer(context.applicationContext)) }
     val saved = remember(entry.id) { (store.reading.anchor(entry.id) ?: if (store.preferences.contains("position_${entry.id}")) ReadingAnchor(store.preferences.getInt("position_${entry.id}", 0)) else null)?.takeIf { conversation.messages.isNotEmpty() }?.let {
         val m = it.message.coerceIn(conversation.messages.indices)
-        it.copy(message = m, version = it.version.coerceIn(conversation.messages[m].versions.indices))
+        val v = it.version.coerceIn(conversation.messages[m].versions.indices)
+        val parts = conversation.messages[m].versions[v].parts
+        val answer = parts.indices.firstOrNull { p -> p >= it.part && !parts[p].thinking } ?: parts.indices.firstOrNull { p -> !parts[p].thinking }
+        if (parts.getOrNull(it.part)?.thinking == true && answer != null) it.copy(message = m, version = v, part = answer, character = 0)
+        else it.copy(message = m, version = v)
     } }
     var selectedVersions by rememberSaveable { mutableStateOf(conversation.messages.mapIndexed { i, m -> (saved?.takeIf { it.message == i }?.version ?: store.preferences.getInt("version_${entry.id}_$i", m.selected)).coerceIn(m.versions.indices) }) }
     val versions = remember(selectedVersions) { selectedVersions.mapIndexed { i, v -> i to v }.toMap() }
@@ -53,6 +56,8 @@ fun ConversationReader(entry: LibraryEntry, store: LibraryStore, fontSize: Float
     var expanded by rememberSaveable { mutableStateOf(saved?.message?.let { listOf(groups.getOrElse(it) { 0 }) } ?: emptyList<Int>()) }
     var pendingRaw by remember { mutableStateOf(saved?.json()) }
     val pending = ReadingAnchor.parse(pendingRaw)
+    var expandedThinking by remember { mutableStateOf(emptySet<String>()) }
+    var pendingFooter by remember { mutableStateOf<Int?>(null) }
     var liveAnchor by remember { mutableStateOf(saved ?: ReadingAnchor(0, versions[0] ?: 0)) }
     var returnRaw by rememberSaveable { mutableStateOf<String?>(null) }
     var query by rememberSaveable { mutableStateOf(initialQuery.orEmpty()) }
@@ -61,7 +66,6 @@ fun ConversationReader(entry: LibraryEntry, store: LibraryStore, fontSize: Float
     var info by remember { mutableStateOf(false) }
     var contents by remember { mutableStateOf(false) }
     var bookmarked by remember { mutableStateOf(store.reading.isBookmarked(entry.id)) }
-    var selectReply by remember { mutableStateOf<Int?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
     val list = rememberLazyListState()
     val views = remember { mutableMapOf<String, WeakReference<TextView>>() }
@@ -69,8 +73,15 @@ fun ConversationReader(entry: LibraryEntry, store: LibraryStore, fontSize: Float
     val rendered by produceState<Map<Int, RenderedVersion>>(emptyMap(), versions, cache) {
         value = withContext(Dispatchers.Default) { buildMap { conversation.messages.indices.forEach { i -> ensureActive(); put(i, cache.version(i, versions.getValue(i))) } } }
     }
-    val rows = remember(rendered, versions, expanded, collapsePrompts) { readerRows(conversation, versions, rendered, groups, expanded, collapsePrompts) }
+    val rows = remember(rendered, versions, expanded, collapsePrompts, expandedThinking) { readerRows(conversation, versions, rendered, groups, expanded, collapsePrompts, expandedThinking) }
     val rowIndexes = remember(rows) { rows.mapIndexed { i, row -> row.key to i }.toMap() }
+    LaunchedEffect(rows, pendingFooter) {
+        pendingFooter?.let { message ->
+            val index = rows.indexOfFirst { it.kind == "footer" && it.message == message }
+            if (index >= 0) list.scrollToItem(index)
+            pendingFooter = null
+        }
+    }
     val currentRows by rememberUpdatedState(rows)
     val currentPending by rememberUpdatedState(pending)
     val currentRendered by rememberUpdatedState(rendered)
@@ -94,6 +105,7 @@ fun ConversationReader(entry: LibraryEntry, store: LibraryStore, fontSize: Float
         val v = anchor.version.coerceIn(conversation.messages[m].versions.indices)
         selectedVersions = selectedVersions.toMutableList().apply { set(m, v) }
         expanded = (expanded + groups[m]).distinct()
+        if (conversation.messages[m].versions[v].parts.getOrNull(anchor.part)?.thinking == true) expandedThinking = expandedThinking + "$m:$v:${anchor.part}"
         pendingRaw = anchor.copy(message = m, version = v).json()
         contents = false
         if (!searching) keyboard?.hide()
@@ -113,7 +125,11 @@ fun ConversationReader(entry: LibraryEntry, store: LibraryStore, fontSize: Float
         if (pending != null && rows.isNotEmpty()) {
             val parts = rendered[pending.message]?.parts
             val available = parts?.flatMap { it.blocks }?.firstOrNull()?.version == pending.version
-            if (parts != null && parts.isEmpty()) {
+            val closedThinking = conversation.messages.getOrNull(pending.message)?.versions?.getOrNull(pending.version)?.parts?.getOrNull(pending.part)?.thinking == true && "${pending.message}:${pending.version}:${pending.part}" !in expandedThinking
+            if (closedThinking) {
+                val index = rows.indexOfFirst { it.kind == "thinking" && it.message == pending.message && it.version == pending.version && it.part == pending.part }
+                if (index >= 0) { list.scrollToItem(index); liveAnchor = pending.copy(character = 0); pendingRaw = null }
+            } else if (parts != null && parts.isEmpty()) {
                 list.scrollToItem(rowForAnchor(rows, pending))
                 liveAnchor = pending.copy(part = 0, character = 0)
                 pendingRaw = null
@@ -212,6 +228,13 @@ fun ConversationReader(entry: LibraryEntry, store: LibraryStore, fontSize: Float
                             }
                             if (collapsePrompts && row.message == groups[row.message]) TextButton(onClick = { expanded = expanded - groups[row.message] }) { Text("▾ Collapse prompt and replies") }
                         }
+                        "thinking" -> Unit
+                        "thinkingEnd" -> TextButton(onClick = {
+                            expandedThinking = expandedThinking - "${row.message}:${row.version}:${row.part}"
+                            pendingRaw = null
+                            val owner = groups[row.message]
+                            pendingFooter = if (conversation.messages[owner].versions[versions.getValue(owner)].role == "user") owner else row.message
+                        }, modifier = Modifier.fillMaxWidth()) { Text("↑ Collapse thinking") }
                         "text" -> row.block?.let { block ->
                             val relevant = activeMatch?.takeIf { it.message == block.message && it.version == block.version && it.part == block.part }
                             ReadingTextBlock(block, displayRenderer, fontSize, style, if (searching) query else "", relevant, version.role == "user", onView = { view ->
@@ -231,14 +254,29 @@ fun ConversationReader(entry: LibraryEntry, store: LibraryStore, fontSize: Float
                             DisposableEffect(block.key) { onDispose { views.remove(block.key) } }
                         }
                         "footer" -> Column(Modifier.fillMaxWidth().padding(bottom = 18.dp)) {
-                            version.parts.forEach { it.stats?.let { stats -> Stats(stats) } }
-                            rendered[row.message]?.parts?.flatMap { it.code }?.forEachIndexed { index, code ->
+                            val statistics = version.parts.mapNotNull { it.stats }
+                            val copyAction: @Composable RowScope.() -> Unit = {
+                                IconButton(enabled = version.parts.any { !it.thinking && it.text.isNotBlank() }, onClick = { clipboard.setText(AnnotatedString(version.parts.filter { !it.thinking }.joinToString("\n\n") { it.text })) }) {
+                                    Icon(androidx.compose.ui.res.painterResource(R.drawable.ic_copy), if (version.role == "user") "Copy prompt" else "Copy reply")
+                                }
+                            }
+                            rendered[row.message]?.parts?.filterIndexed { p, part -> !part.thinking || "${row.message}:${row.version}:$p" in expandedThinking }?.flatMap { it.code }?.forEachIndexed { index, code ->
                                 TextButton(onClick = { clipboard.setText(AnnotatedString(code)) }) { Text("Copy code ${index + 1}") }
                             }
-                            Row {
-                                TextButton(onClick = { clipboard.setText(AnnotatedString(version.parts.joinToString("\n\n") { it.text })) }) { Text(if (version.role == "user") "Copy prompt" else "Copy reply") }
-                                TextButton(onClick = { selectReply = row.message }) { Text("Select text") }
+                            val targets = thinkingTargets(conversation, versions, groups, row.message)
+                            if (targets.isNotEmpty() || statistics.isEmpty()) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                if (targets.isNotEmpty()) {
+                                    val keys = targets.map { "${it.message}:${it.version}:${it.part}" }.toSet()
+                                    val open = keys.any { it in expandedThinking }
+                                    TextButton(onClick = {
+                                        expandedThinking = if (open) expandedThinking - keys else expandedThinking + keys
+                                        pendingRaw = null
+                                    }, modifier = Modifier.semantics { contentDescription = if (open) "Hide thinking" else "Show thinking" }) { Text(if (open) "▾ Thinking" else "▸ Thinking", maxLines = 1) }
+                                }
+                                Spacer(Modifier.weight(1f))
+                                if (statistics.isEmpty()) copyAction()
                             }
+                            statistics.forEachIndexed { i, stats -> Stats(stats, trailingActions = { if (i == statistics.lastIndex) copyAction() }) }
                         }
                     }
                 }
@@ -259,7 +297,6 @@ fun ConversationReader(entry: LibraryEntry, store: LibraryStore, fontSize: Float
             items(outline) { item -> TextButton(onClick = { jump(item.anchor) }, modifier = Modifier.fillMaxWidth().padding(start = (item.level.coerceAtMost(4) * 10).dp)) { Text(if (item.prompt) "Prompt · ${item.label}" else item.label, Modifier.fillMaxWidth(), maxLines = 3, overflow = TextOverflow.Ellipsis) } }
         }
     }
-    selectReply?.let { message -> FullReplySelection(rendered[message]?.parts?.map { it.text }.orEmpty(), displayRenderer, fontSize, style) { selectReply = null } }
     notice?.let { AlertDialog(onDismissRequest = { notice = null }, text = { Text(it) }, confirmButton = { TextButton(onClick = { notice = null }) { Text("OK") } }) }
 }
 
@@ -267,7 +304,8 @@ fun ConversationReader(entry: LibraryEntry, store: LibraryStore, fontSize: Float
 private fun ReadingTextBlock(block: ReadingBlock, renderer: Markwon, fontSize: Float, style: ReaderStyle, query: String, active: SearchMatch?, prompt: Boolean, onView: (TextView) -> Unit) {
     val color = MaterialTheme.colorScheme.onSurface.toArgb()
     val link = readerLinkColor().toArgb()
-    val text = remember(block, query, active) { SpannableStringBuilder(block.text).apply {
+    val paragraphGap = with(LocalDensity.current) { 8.dp.roundToPx() }
+    val text = remember(block, query, active, paragraphGap) { thinkingParagraphSpacing(block.text, if (block.thinking) paragraphGap else 0).apply {
         matchRanges(block.text, query, true).forEach { range ->
             setSpan(BackgroundColorSpan(if (active?.start == block.start + range.first) 0xFFFFB74D.toInt() else 0xFFFFE082.toInt()), range.first, range.last + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             setSpan(ForegroundColorSpan(0xFF171A17.toInt()), range.first, range.last + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -303,19 +341,3 @@ private fun ReaderBlockNavigation(list: androidx.compose.foundation.lazy.LazyLis
         } else Spacer(Modifier.weight(2.3f))
     }
 }
-
-@Composable
-private fun FullReplySelection(parts: List<Spanned>, renderer: Markwon, size: Float, style: ReaderStyle, close: () -> Unit) {
-    val text = remember(parts) { SpannableStringBuilder().apply { parts.forEachIndexed { i, p -> if (i > 0) append("\n\n"); append(p) } } }
-    val color = MaterialTheme.colorScheme.onSurface.toArgb()
-    val clipboard = LocalClipboardManager.current
-    val readerSelectionLink = readerLinkColor().toArgb()
-    AlertDialog(onDismissRequest = close, title = { Text("Select reply text") }, text = {
-        val scroll = androidx.compose.foundation.rememberScrollState()
-        Box { Column(Modifier.then(Modifier).verticalScrollCompat(scroll)) {
-            AndroidView(factory = { TextView(it).apply { setTextIsSelectable(true) } }, update = { view -> view.setTextColor(color); view.setLinkTextColor(readerSelectionLink); if (view.tag !== text) { renderer.setParsedMarkdown(view, text); view.tag = text }; applyReaderTypography(view, size, style) }, modifier = Modifier.fillMaxWidth())
-        }; PlainScrollSlider(scroll) }
-    }, confirmButton = { TextButton(onClick = close) { Text("Done") } }, dismissButton = { TextButton(onClick = { clipboard.setText(AnnotatedString(text.toString())) }) { Text("Copy all") } })
-}
-
-private fun Modifier.verticalScrollCompat(state: androidx.compose.foundation.ScrollState) = this.then(Modifier.verticalScroll(state))

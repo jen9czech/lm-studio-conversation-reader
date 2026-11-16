@@ -62,12 +62,89 @@ class NativeReaderAuditTest {
                 assertTrue("Version belongs below Settings", version.top >= settings.bottom)
                 compose.onNode(hasText(view) and hasAnyAncestor(isPopup())).performClick()
                 compose.onAllNodes(isPopup()).assertCountEquals(0)
-                compose.onNodeWithText(view).assertIsSelected()
+                compose.onNodeWithText(view).assertIsSelected().assertIsDisplayed()
             }
             compose.onNodeWithContentDescription("Open navigation menu").performClick()
             compose.onNode(hasText("Settings") and hasAnyAncestor(isPopup())).performClick()
             compose.onNodeWithText("Settings").assertIsDisplayed()
             compose.onAllNodes(isPopup()).assertCountEquals(0)
+            compose.onNodeWithText("Collapse by prompts").performScrollTo().assertIsDisplayed()
+            val description = compose.onNodeWithText("Show two-line prompt previews. Tap to read the full prompt and replies.").fetchSemanticsNode().boundsInRoot
+            val toggle = compose.onNodeWithContentDescription("Show two-line prompt previews").fetchSemanticsNode().boundsInRoot
+            assertTrue(description.right <= toggle.left)
+            compose.onAllNodesWithText("Conversation navigation").assertCountEquals(0)
+            compose.onAllNodesWithText("The quick brown fox").assertCountEquals(0)
+        }
+    }
+
+    @Test fun foldersExcludeBodyMatchesAndAllFilesIncludesThem() {
+        val provider = AuditDocumentsProvider().apply {
+            raw = """{"name":"Archive title","messages":[{"versions":[{"role":"user","content":"bodyonlymarker"}]}]}"""
+        }
+        provider.attachInfo(context, ProviderInfo().apply { authority = "audit.documents" })
+        ShadowContentResolver.registerProviderInternal("audit.documents", provider)
+        context.getSharedPreferences("reader", Context.MODE_PRIVATE).edit().putString("linkedFolder", "content://audit.documents/tree/root").commit()
+        File(context.filesDir, "folder-index.json").delete()
+        ActivityScenario.launch(MainActivity::class.java).use {
+            compose.waitUntil(10_000) { compose.onAllNodesWithText("Archive title").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithContentDescription("Search").performClick()
+            compose.onNode(hasSetTextAction()).performTextInput("bodyonlymarker")
+            compose.onAllNodesWithText("Archive title").assertCountEquals(0)
+            compose.onNodeWithText("All files").performClick()
+            compose.waitUntil(10_000) { compose.onAllNodesWithText("Archive title").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("Folders").performClick()
+            compose.onAllNodesWithText("Archive title").assertCountEquals(0)
+            compose.onNode(hasSetTextAction()).performTextReplacement("sample.conversation")
+            compose.onNodeWithText("Archive title").assertExists().performClick()
+            compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Back").fetchSemanticsNodes().isNotEmpty() }
+            compose.onAllNodesWithContentDescription("Exit search").assertCountEquals(0)
+        }
+    }
+
+    @Test fun thinkingIsClosedByDefaultAndSearchCanOpenIt() {
+        val directory = File(context.filesDir, "conversations").apply { mkdirs() }
+        File(directory, "thinking.json").writeText("""{"name":"Thinking example","messages":[{"versions":[{"role":"user","content":"Please compare the choices."}]},{"versions":[{"role":"assistant","steps":[{"type":"contentBlock","style":{"type":"thinking"},"content":"<think>A plan.\n\n        * **Reason** about the secretmarker.\n\n    * Another idea.</think>"},{"type":"contentBlock","content":"The visible final answer.","genInfo":{"stats":{"predictedTokensCount":42}}}]}]}]}""")
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            compose.waitUntil(10_000) { compose.onAllNodesWithText("Thinking example").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("Thinking example").performClick()
+            compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Show thinking").fetchSemanticsNodes().isNotEmpty() }
+            compose.onAllNodesWithContentDescription("Hide thinking").assertCountEquals(0)
+            val copy = compose.onNodeWithContentDescription("Copy prompt").fetchSemanticsNode().boundsInRoot
+            val thinking = compose.onNodeWithContentDescription("Show thinking").fetchSemanticsNode().boundsInRoot
+            assertEquals(copy.center.y, thinking.center.y, 1f)
+            assertTrue(thinking.right <= copy.left)
+            compose.onAllNodesWithText("Select text").assertCountEquals(0)
+            compose.onNodeWithContentDescription("Show thinking").performClick()
+            compose.onNodeWithContentDescription("Hide thinking").assertExists()
+            compose.onAllNodesWithText("Copy thinking").assertCountEquals(0)
+            scenario.onActivity { activity ->
+                fun texts(view: android.view.View): List<TextView> = when (view) {
+                    is android.view.ViewGroup -> (0 until view.childCount).flatMap { texts(view.getChildAt(it)) }
+                    is TextView -> listOf(view)
+                    else -> emptyList()
+                }
+                val thought = texts(activity.window.decorView).first { it.text.contains("secretmarker") }
+                assertFalse(thought.text.contains("**"))
+                assertFalse(thought.text.contains("##"))
+                assertTrue((thought.text as android.text.Spanned).getSpans(0, thought.text.length, android.text.style.MetricAffectingSpan::class.java).isNotEmpty())
+            }
+            compose.onNodeWithText("↑ Collapse thinking").performClick()
+            compose.onNodeWithContentDescription("Show thinking").assertExists()
+            val details = compose.onNodeWithText("Generation details ↓").fetchSemanticsNode().boundsInRoot
+            val replyCopy = compose.onNodeWithContentDescription("Copy reply").fetchSemanticsNode().boundsInRoot
+            assertEquals(details.center.y, replyCopy.center.y, 1f)
+            assertTrue(details.right <= replyCopy.left)
+            compose.onNodeWithContentDescription("Search").performClick()
+            compose.onNode(hasSetTextAction()).performTextInput("secretmarker")
+            compose.waitUntil(10_000) { compose.onAllNodesWithText("1 of 1").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithContentDescription("Hide thinking").assertExists()
+            compose.onNodeWithContentDescription("Exit search").performClick()
+            // Back restores the pre-search passage, then returns to the library.
+            compose.onNodeWithContentDescription("Back").performClick()
+            compose.onNodeWithContentDescription("Back").performClick()
+            compose.onNodeWithText("Thinking example").performClick()
+            compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Show thinking").fetchSemanticsNodes().isNotEmpty() }
+            compose.onAllNodesWithContentDescription("Hide thinking").assertCountEquals(0)
         }
     }
 

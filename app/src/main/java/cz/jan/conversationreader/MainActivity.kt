@@ -7,6 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
@@ -175,12 +176,17 @@ private fun Library(entries: List<LibraryEntry>, busy: Boolean, store: LibrarySt
     val searchScope = rememberCoroutineScope()
     val linkedList = rememberLazyListState()
     val importedList = rememberLazyListState()
+    val viewScroll = rememberScrollState()
+    val viewRequesters = remember { LibraryViews.associateWith { androidx.compose.foundation.relocation.BringIntoViewRequester() } }
     var searchItem by remember { mutableIntStateOf(0) }
     var sortField by rememberSaveable { mutableStateOf(store.preferences.getString("sortField", "Date") ?: "Date") }
     var descending by rememberSaveable { mutableStateOf(store.preferences.getBoolean("sortDescending", true)) }
     var sortMenu by remember { mutableStateOf(false) }
     var source by rememberSaveable { mutableStateOf(if (store.preferences.contains("linkedFolder")) "Folders" else "Imported") }
     LaunchedEffect(query, source) { searchItem = 0 }
+    LaunchedEffect(source, visibleScreen) {
+        if (visibleScreen) { withFrameNanos { }; viewRequesters[source]?.bringIntoView() }
+    }
     var path by rememberSaveable { mutableStateOf("") }
     var folderPositions by rememberSaveable { mutableStateOf(mapOf<String, List<Int>>()) }
     var pendingPosition by remember { mutableStateOf<List<Int>?>(null) }
@@ -223,9 +229,9 @@ private fun Library(entries: List<LibraryEntry>, busy: Boolean, store: LibrarySt
     }
     var removing by remember { mutableStateOf<LibraryEntry?>(null) }
     BackHandler(visibleScreen && source == "Folders" && path.isNotEmpty() && !showSearch) { navigateFolder(path.substringBeforeLast('/', "")) }
-    val indexHits by produceState<Map<String, LibrarySearchHit>>(emptyMap(), query, showSearch, files, entries) {
+    val indexHits by produceState<Map<String, LibrarySearchHit>>(emptyMap(), query, showSearch, files, entries, source) {
         value = emptyMap()
-        if (showSearch && query.isNotBlank()) { kotlinx.coroutines.delay(180); value = withContext(Dispatchers.IO) { store.searchIndex.search(query) } }
+        if (showSearch && query.isNotBlank() && source != "Folders") { kotlinx.coroutines.delay(180); value = withContext(Dispatchers.IO) { store.searchIndex.search(query) } }
     }
     val recent = remember(revision, localRevision, files, entries) { store.reading.recent() }
     val folderCounts = remember(files) { folderFileCounts(files.map { it.path to it.isDirectory }) }
@@ -243,8 +249,17 @@ private fun Library(entries: List<LibraryEntry>, busy: Boolean, store: LibrarySt
             val folders = files.filter { it.isDirectory && it.path.startsWith(prefix) && '/' !in it.path.removePrefix(prefix) }
                 .sortedWith((if (descending) folderSorter.reversed() else folderSorter).thenBy { it.path }).map { it.path.removePrefix(prefix) }
             val sorter = when (sortField) { "Name" -> compareBy<LibraryStore.FolderFile> { it.title.lowercase() }; "Length" -> compareBy<LibraryStore.FolderFile> { it.words ?: -1 }; else -> compareBy<LibraryStore.FolderFile> { it.modified } }
-            val visible = files.filter { !it.isDirectory && (source == "All files" || (it.path.startsWith(prefix) && '/' !in it.path.removePrefix(prefix))) && (!showSearch || query.isBlank() || store.linkedId(it.uri) in indexHits || it.title.contains(query, true) || it.path.contains(query, true)) }.sortedWith((if (descending) sorter.reversed() else sorter).thenBy { it.path })
-            val resultCount = visible.size + if (source == "Folders") folders.count { it.contains(query, true) } else 0
+            val visible = files.filter { !it.isDirectory && (source == "All files" || (it.path.startsWith(prefix) && '/' !in it.path.removePrefix(prefix))) && (!showSearch || matchesLinkedSearch(it.title, it.path, query, source == "All files", store.linkedId(it.uri) in indexHits)) }.sortedWith((if (descending) sorter.reversed() else sorter).thenBy { it.path })
+            val matchingParents = remember(files, query) {
+                buildSet<String> {
+                    files.filter { !it.isDirectory && matchesLibraryMetadata(it.title, it.path, query) }.forEach { file ->
+                        var parent = file.path.substringBeforeLast('/', "")
+                        while (parent.isNotEmpty()) { add(parent); parent = parent.substringBeforeLast('/', "") }
+                    }
+                }
+            }
+            val visibleFolders = folders.filter { !showSearch || query.isBlank() || matchesLibraryMetadata(it, prefix + it, query) || prefix + it in matchingParents }
+            val resultCount = visible.size + if (source == "Folders") visibleFolders.size else 0
 
     val bookmarkedIds = remember(revision, localRevision) { store.reading.bookmarkedIds() }
     val cards = remember(recent, entries, files, source, revision, localRevision, bookmarkedIds) { buildList {
@@ -260,7 +275,7 @@ private fun Library(entries: List<LibraryEntry>, busy: Boolean, store: LibrarySt
         }
     } }.filter { !showSearch || query.isBlank() || store.referenceId(it.reference) in indexHits || it.title.contains(query, true) }
     Column(Modifier.fillMaxSize()) {
-        ReaderToolbar(showSearch && visibleScreen, query, onQuery, onSearch, onCloseSearch, onSettings, title = "Conversation Reader", currentView = source, onMenuView = { selectView(it) })
+        ReaderToolbar(showSearch && visibleScreen, query, onQuery, onSearch, onCloseSearch, onSettings, title = "Conversation Reader", currentView = source, onMenuView = { selectView(it) }, searchHint = if (source == "Folders") "Search names and paths" else if (source == "All files") "Search names, paths and text" else "Search")
         val total = when (source) { "Imported" -> filtered.size; "Recent", "Bookmarked" -> cards.size; else -> resultCount }
         if (showSearch) SearchResultsBar(searchItem.coerceAtMost((total - 1).coerceAtLeast(0)), total,
             onPrevious = { searchItem = (searchItem - 1 + total) % total; searchScope.launch { (if (source in listOf("Imported", "Recent", "Bookmarked")) importedList else linkedList).animateScrollToItem(searchItem) } },
@@ -268,8 +283,8 @@ private fun Library(entries: List<LibraryEntry>, busy: Boolean, store: LibrarySt
         Column(Modifier.weight(1f).padding(horizontal = 20.dp)) {
 
         Spacer(Modifier.height(12.dp))
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            LibraryViews.forEach { mode -> FilterChip(selected = source == mode, onClick = { selectView(mode) }, label = { Text(mode) }) }
+        Row(Modifier.horizontalScroll(viewScroll), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LibraryViews.forEach { mode -> FilterChip(selected = source == mode, onClick = { selectView(mode) }, modifier = Modifier.bringIntoViewRequester(viewRequesters.getValue(mode)), label = { Text(mode) }) }
         }
         if (!showSearch && source !in listOf("Recent", "Bookmarked") && recent.isNotEmpty()) {
             val last = recent.first()
@@ -321,11 +336,11 @@ private fun Library(entries: List<LibraryEntry>, busy: Boolean, store: LibrarySt
 
             Box(Modifier.weight(1f)) {
             LazyColumn(Modifier.fillMaxSize(), state = linkedList, contentPadding = PaddingValues(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (source == "Folders") items(folders.filter { !showSearch || it.contains(query, true) }) { folder ->
+                if (source == "Folders") items(visibleFolders) { folder ->
                     OutlinedButton(onClick = { navigateFolder(prefix + folder) }, modifier = Modifier.fillMaxWidth()) { Text("▸ $folder", Modifier.weight(1f)); Text("${folderCounts[prefix + folder] ?: 0}", style = MaterialTheme.typography.labelMedium) }
                 }
                 items(visible, key = { it.uri.toString() }) { file ->
-                    Card(onClick = { if (!busy) onFolderOpen(file, query.takeIf { showSearch && it.isNotBlank() }) }, modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
+                    Card(onClick = { if (!busy) onFolderOpen(file, query.takeIf { showSearch && source == "All files" && it.isNotBlank() }) }, modifier = Modifier.fillMaxWidth()) { Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(file.title, style = MaterialTheme.typography.titleMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                             val id = store.linkedId(file.uri)
@@ -337,7 +352,7 @@ private fun Library(entries: List<LibraryEntry>, busy: Boolean, store: LibrarySt
                         if (source == "All files" && '/' in file.path) Text(file.path.substringBeforeLast('/'), style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     } }
                 }
-                if (!scanning && visible.isEmpty() && (source != "Folders" || folders.isEmpty())) item { Text("No conversation files here. Restart the app or update the index in Settings after adding files.") }
+                if (!scanning && visible.isEmpty() && (source != "Folders" || visibleFolders.isEmpty())) item { Text("No conversation files here. Restart the app or update the index in Settings after adding files.") }
             }
             LazyScrollSlider(linkedList, listOf(source, path, sortField, descending, query, visible.map { it.uri.toString() }))
             if (scanning && files.isEmpty()) Surface(Modifier.align(Alignment.Center), shape = RoundedCornerShape(16.dp), tonalElevation = 8.dp) {
@@ -452,14 +467,18 @@ internal fun ConversationInfoDialog(entry: LibraryEntry, versions: Map<Int, Int>
 }
 
 @Composable
-internal fun Stats(stats: GenerationStats) {
+internal fun Stats(stats: GenerationStats, trailingActions: @Composable RowScope.() -> Unit = {}) {
     var expanded by remember { mutableStateOf(false) }
     val summary = listOfNotNull(stats.speed?.let { "${decimal(it)} tok/s" }, stats.generated?.let { "$it tokens" }, stats.firstToken?.let { "First token ${decimal(it)} s" })
     Column(Modifier.padding(top = 12.dp)) {
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             summary.forEach { text -> Surface(shape = RoundedCornerShape(50), color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = .55f)) { Text(text, Modifier.padding(horizontal = 10.dp, vertical = 7.dp), style = MaterialTheme.typography.labelSmall) } }
         }
-        TextButton(onClick = { expanded = !expanded }, contentPadding = PaddingValues(0.dp)) { Text(if (expanded) "Hide generation details ↑" else "Generation details ↓", style = MaterialTheme.typography.labelSmall) }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = { expanded = !expanded }, contentPadding = PaddingValues(0.dp)) { Text(if (expanded) "Hide generation details ↑" else "Generation details ↓", style = MaterialTheme.typography.labelSmall) }
+            Spacer(Modifier.weight(1f))
+            trailingActions()
+        }
         if (expanded) Text(listOf(
             "Total generation time: ${stats.duration?.let { "${decimal(it)} s" } ?: "Not recorded"}",
             "Prompt tokens: ${stats.prompt ?: "Not recorded"}", "Generated tokens: ${stats.generated ?: "Not recorded"}",

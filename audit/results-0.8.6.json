@@ -1,0 +1,367 @@
+{
+  "appVersion": "0.8.6",
+  "versionCode": 22,
+  "date": "2026-11-16",
+  "simulatedAndroidApi": 35,
+  "physicalDeviceTested": false,
+  "regularTestsPassed": 30,
+  "expandedTestsPassed": 62,
+  "lintErrors": 0,
+  "lintWarnings": 29,
+  "sameSigningCertificateAs": "0.8.5",
+  "apkSha256": "53695a94be9167b42c24dfceac0dec8cd8078786ad1b45f1401bee625ef258eb",
+  "tests": [
+    {
+      "name": "cz.jan.conversationreader.ArchiveStressAuditTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "parsesAndSearchesLargeSyntheticArchive",
+          "passed": true
+        },
+        {
+          "name": "caseInsensitiveCzechSearchKeepsCharacterOffsets",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "cz.jan.conversationreader.ConversationMetricsTest",
+      "tests": 2,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "tokenTotalsUseSavedCountAndSelectedRepliesWithoutRepeatedPromptTokens",
+          "passed": true
+        },
+        {
+          "name": "folderCountsIncludeDescendantsButNotDirectories",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "cz.jan.conversationreader.ConversationParserTest",
+      "tests": 6,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "unrelatedJsonRejected",
+          "passed": true
+        },
+        {
+          "name": "emptyConversationAndBomSupported",
+          "passed": true
+        },
+        {
+          "name": "screenshotExampleMatchesActualGenerationStatistics",
+          "passed": true
+        },
+        {
+          "name": "emptyVersionsRejected",
+          "passed": true
+        },
+        {
+          "name": "multiTurnVersionsUnknownBlocksAndMissingMetadataArePreserved",
+          "passed": true
+        },
+        {
+          "name": "longExamplePreservesTextAndModel",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "cz.jan.conversationreader.LibraryFilteringTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "foldersSearchesMetadataOnlyWhileAllFilesCanMatchContent",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "cz.jan.conversationreader.MetadataCacheTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "unchangedFilesReuseMetadata",
+          "passed": true
+        },
+        {
+          "name": "changedFilesInvalidateMetadata",
+          "passed": true
+        },
+        {
+          "name": "missingProviderMetadataCannotBeTrusted",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "cz.jan.conversationreader.NativeReaderAuditTest",
+      "tests": 15,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "nativeMarkdownPreservesCzechTextAndFormatting",
+          "passed": true
+        },
+        {
+          "name": "collapseBackKeepsReaderBeforeReturningToLibrary",
+          "passed": true
+        },
+        {
+          "name": "foldersExcludeBodyMatchesAndAllFilesIncludesThem",
+          "passed": true
+        },
+        {
+          "name": "searchKeepsKeyboardAndFocusWhileTypingAndNavigatingMatches",
+          "passed": true
+        },
+        {
+          "name": "nativeLongReplyLayoutReportsHostCost",
+          "passed": true
+        },
+        {
+          "name": "readingFontChangesActualNativeTextViews",
+          "passed": true
+        },
+        {
+          "name": "importedConversationOpensAndSearchFindsRenderedReply",
+          "passed": true
+        },
+        {
+          "name": "readerActionsShareToolbarAndProgressSharesBottomNavigationRow",
+          "passed": true
+        },
+        {
+          "name": "importedLibraryCopyReadableThroughHostProviderAdapter",
+          "passed": true
+        },
+        {
+          "name": "mainSearchBackExitsAndSettingsShowsVersion",
+          "passed": true
+        },
+        {
+          "name": "oneStarTogglesConsistentlyAcrossReaderAndBookmarkedView",
+          "passed": true
+        },
+        {
+          "name": "libraryFullTextSearchOpensTheMatchingReaderHit",
+          "passed": true
+        },
+        {
+          "name": "mainIconMenuListsViewsOpensSettingsAndShowsVersionLast",
+          "passed": true
+        },
+        {
+          "name": "thinkingIsClosedByDefaultAndSearchCanOpenIt",
+          "passed": true
+        },
+        {
+          "name": "linkedReaderSurvivesActivityRecreation",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "cz.jan.conversationreader.ReaderSearchTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "progressMovesWithinLongRepliesAndHandlesBoundaries",
+          "passed": true
+        },
+        {
+          "name": "matchesEveryOccurrenceCaseInsensitively",
+          "passed": true
+        },
+        {
+          "name": "matchesRetainVersionPartAndVisibleTextOffsets",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "cz.jan.conversationreader.ReadingFeaturesAuditTest",
+      "tests": 12,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "thinkingDefaultsToClosedAndUsesTheMarkdownRenderer",
+          "passed": true
+        },
+        {
+          "name": "iconUsesBrandPurpleWithTransparentRoundedCorners",
+          "passed": true
+        },
+        {
+          "name": "outlineUsesRenderedOffsetsAndCodeRemainsCopyable",
+          "passed": true
+        },
+        {
+          "name": "styledThinkingWithRedundantTagsStillRendersMarkdownHeadings",
+          "passed": true
+        },
+        {
+          "name": "longRepliesUseBoundedNativeViewsAndStableOffsets",
+          "passed": true
+        },
+        {
+          "name": "bundledFontsHaveDistinctRenderedGlyphsAndCourierStyleFixedWidths",
+          "passed": true
+        },
+        {
+          "name": "thinkingParagraphSpacingIncreasesHeightWithoutChangingOffsetsOrCode",
+          "passed": true
+        },
+        {
+          "name": "markdownLinksHaveAnUnderlineBeyondTheirColor",
+          "passed": true
+        },
+        {
+          "name": "indexFindsBodyAndCzechTextAndReplacesStaleContent",
+          "passed": true
+        },
+        {
+          "name": "overindentedThinkingListsRenderAsListsAndBoldInsteadOfCode",
+          "passed": true
+        },
+        {
+          "name": "bookmarksMigrateAndUnstarReliablyAcrossStoreInstances",
+          "passed": true
+        },
+        {
+          "name": "recentConversationsDeduplicateByStableId",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "cz.jan.conversationreader.ReadingInfrastructureTest",
+      "tests": 4,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "scrollbarUsesMeasurementsAndRebuildsWhenContentChanges",
+          "passed": true
+        },
+        {
+          "name": "accentInsensitiveSearchReturnsOriginalOffsets",
+          "passed": true
+        },
+        {
+          "name": "slicesReassembleLongUnicodeTextWithoutBreakingPairs",
+          "passed": true
+        },
+        {
+          "name": "groupingHandlesLeadingAssistantMessagesAndLongRuns",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "cz.jan.conversationreader.ScrollTargetTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "seeksWithinOneLongReply",
+          "passed": true
+        },
+        {
+          "name": "handlesEmptyCollapsedAndEndPositions",
+          "passed": true
+        },
+        {
+          "name": "seeksPastPromptIntoLongReply",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "cz.jan.conversationreader.StorageAuditTest",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "changedSizeAndTimestampInvalidateIndex",
+          "passed": true
+        },
+        {
+          "name": "unchangedScanDoesNotReopenJsonAndLinkedReadCreatesNoImport",
+          "passed": true
+        },
+        {
+          "name": "corruptFileKeepsFilenameAndDoesNotCrashWholeScan",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "cz.jan.conversationreader.TextLengthTest",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "countsSelectedPromptAndReplyTextOnly",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "cz.jan.conversationreader.ThinkingTest",
+      "tests": 7,
+      "failures": 0,
+      "errors": 0,
+      "cases": [
+        {
+          "name": "thinkingListIndentationIsNormalizedWithoutFlatteningRealNestedListsOrCode",
+          "passed": true
+        },
+        {
+          "name": "codeExamplesAndEscapedTagsAreNotThinking",
+          "passed": true
+        },
+        {
+          "name": "inlineThinkingSplitsOnlyAssistantAndCountsGenerationOnce",
+          "passed": true
+        },
+        {
+          "name": "redundantThinkingWrappersAndMarkdownFencesAreNormalized",
+          "passed": true
+        },
+        {
+          "name": "promptActionsOwnThinkingInTheirRepliesWithoutDuplicateToggles",
+          "passed": true
+        },
+        {
+          "name": "typedThinkingContentAndTruncatedReasoningArePreserved",
+          "passed": true
+        },
+        {
+          "name": "styledThinkingAndAnswerKeepMarkdownAndStats",
+          "passed": true
+        }
+      ]
+    }
+  ]
+}

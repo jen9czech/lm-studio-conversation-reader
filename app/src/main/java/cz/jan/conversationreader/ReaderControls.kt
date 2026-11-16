@@ -15,6 +15,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,7 +37,7 @@ import androidx.compose.ui.window.DialogProperties
 internal val LibraryViews = listOf("Folders", "All files", "Imported", "Recent", "Bookmarked")
 
 @Composable
-fun ReaderToolbar(searching: Boolean, query: String, onQuery: (String) -> Unit, onSearch: () -> Unit, onCloseSearch: () -> Unit, onPreferences: () -> Unit, title: String? = null, subtitle: String? = null, onBack: (() -> Unit)? = null, extraActions: @Composable RowScope.() -> Unit = {}, currentView: String? = null, onMenuView: ((String) -> Unit)? = null) {
+fun ReaderToolbar(searching: Boolean, query: String, onQuery: (String) -> Unit, onSearch: () -> Unit, onCloseSearch: () -> Unit, onPreferences: () -> Unit, title: String? = null, subtitle: String? = null, onBack: (() -> Unit)? = null, extraActions: @Composable RowScope.() -> Unit = {}, currentView: String? = null, onMenuView: ((String) -> Unit)? = null, searchHint: String = "Search") {
     var menuOpen by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -46,7 +47,7 @@ fun ReaderToolbar(searching: Boolean, query: String, onQuery: (String) -> Unit, 
         if (searching) {
             IconButton(onClick = { focusManager.clearFocus(force = true); keyboard?.hide(); onCloseSearch() }) { Icon(painterResource(R.drawable.ic_back), "Exit search") }
             BasicTextField(query, onQuery, singleLine = true, textStyle = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onSurface), cursorBrush = SolidColor(MaterialTheme.colorScheme.primary), modifier = Modifier.weight(1f).focusRequester(focus), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }), decorationBox = { inner ->
-                Box { if (query.isEmpty()) Text("Search", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.titleLarge); inner() }
+                Box { if (query.isEmpty()) Text(searchHint, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.titleLarge); inner() }
             })
             IconButton(onClick = { onQuery("") }) { Icon(painterResource(R.drawable.ic_close), "Clear search") }
         } else {
@@ -116,12 +117,11 @@ fun PreferencesScreen(main: Boolean, folder: String?, fontSize: Float, theme: St
                             Button(onClick = onFolder) { Text(if (folder == null) "Link folder" else "Change folder") }
                             OutlinedButton(onClick = onRescan, enabled = folder != null) { Text("Update index now") }
                         }
-                        PreferenceSection("Conversation navigation") {
+                        PreferenceSection("Collapse by prompts") {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Collapse by prompts", Modifier.weight(1f))
-                                Switch(collapse, onCollapse)
+                                Text("Show two-line prompt previews. Tap to read the full prompt and replies.", Modifier.weight(1f).padding(end = 12.dp), style = MaterialTheme.typography.bodyMedium)
+                                Switch(collapse, onCollapse, modifier = Modifier.semantics { contentDescription = "Show two-line prompt previews" })
                             }
-                            Text("Show two-line prompt previews. Tap to read the full prompt and replies.", style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                     PreferenceSection("Text size") {
@@ -136,7 +136,6 @@ fun PreferencesScreen(main: Boolean, folder: String?, fontSize: Float, theme: St
                                     RadioButton(selected = style.font == font, onClick = null)
                                     Column(Modifier.padding(start = 8.dp)) {
                                         Text(readerFontName(font), fontFamily = readerFontFamily(font), fontSize = 20.sp)
-                                        Text("The quick brown fox", fontFamily = readerFontFamily(font), fontSize = 20.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                 }
                             }
@@ -157,7 +156,7 @@ fun PreferencesScreen(main: Boolean, folder: String?, fontSize: Float, theme: St
                     }
                     if (main) PreferenceSection("About") {
                         Text("LM Studio Conversation Reader", style = MaterialTheme.typography.titleMedium)
-                        Text("Version ${BuildConfig.VERSION_NAME}\nUpdated ${BuildConfig.UPDATED_DATE}")
+                        Text("Version ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})\nUpdated ${BuildConfig.UPDATED_DATE}")
                         TextButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/jen9czech/lm-studio-conversation-reader"))) }) { Text("GitHub project ↗") }
                     }
                 }

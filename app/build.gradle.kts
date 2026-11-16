@@ -10,9 +10,9 @@ android {
         applicationId = "cz.jan.conversationreader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 18
-        versionName = "0.8.3"
-        buildConfigField("String", "UPDATED_DATE", "\"2026-11-15\"")
+        versionCode = 22
+        versionName = "0.8.6"
+        buildConfigField("String", "UPDATED_DATE", "\"2026-11-16\"")
     }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions {

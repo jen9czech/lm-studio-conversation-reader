@@ -1,6 +1,6 @@
 # Conversation Reader audit
 
-This optional harness tests the current app without adding dependencies to the production APK or changing its version. The assessment is in [APP_REVIEW.md](APP_REVIEW.md); baseline machine-readable results are in [results.json](results.json). Current release verification is in [VERIFICATION-0.8.3.md](VERIFICATION-0.8.3.md) and [results-0.8.3.json](results-0.8.3.json).
+This optional harness tests the current app without adding dependencies to the production APK or changing its version. The assessment is in [APP_REVIEW.md](APP_REVIEW.md); baseline machine-readable results are in [results.json](results.json). Current release verification is in [VERIFICATION-0.8.6.md](VERIFICATION-0.8.6.md) and [results-0.8.6.json](results-0.8.6.json).
 
 ## Run
 
@@ -15,9 +15,9 @@ The first command runs the regular build, unit tests, and lint. The second adds 
 
 ## Current result
 
-App version **0.8.3 passes all 48 expanded tests**, including 22 regular tests. See [release verification](VERIFICATION-0.8.3.md) and [machine-readable results](results-0.8.3.json).
+App version **0.8.6 passes all 62 expanded tests**, including 30 regular tests. See [release verification](VERIFICATION-0.8.6.md) and [machine-readable results](results-0.8.6.json).
 
-The main-icon menu regression verifies all five views, view selection, Settings access, popup dismissal and the version footer. The font rendering check verifies three distinct glyph images, fixed character widths for Monospaced, and Czech glyph support. The native view test switches all three bundled font families. Layout checks cover left-aligned progress in the shared bottom navigation row and message/word metadata appearing only in collapsed view. Existing bookmarking, search-keyboard, lifecycle, passage restoration, indexing, appearance, parsing, and navigation checks pass.
+New checks verify larger thinking paragraph gaps without changed text offsets or extra spacing inside code blocks, end-of-thinking collapse behavior, and copy-icon alignment with Generation details. Existing Markdown, search-scope, parser, fonts, library, bookmarking and lifecycle checks pass.
 
 Historical reports remain available for earlier versions.
 

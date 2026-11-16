@@ -32,12 +32,12 @@ fun textSlices(text: CharSequence, maxChars: Int = 1800): List<TextSlice> {
     return result
 }
 
-data class ReadingBlock(val message: Int, val version: Int, val part: Int, val start: Int, val end: Int, val text: Spanned) {
+data class ReadingBlock(val message: Int, val version: Int, val part: Int, val start: Int, val end: Int, val text: Spanned, val thinking: Boolean = false) {
     val key get() = "$message:$version:$part:$start"
     val anchor get() = ReadingAnchor(message, version, part, start)
 }
 data class OutlineEntry(val label: String, val level: Int, val anchor: ReadingAnchor, val prompt: Boolean = false)
-data class RenderedPart(val text: Spanned, val blocks: List<ReadingBlock>, val headings: List<OutlineEntry>, val code: List<String> = emptyList())
+data class RenderedPart(val text: Spanned, val blocks: List<ReadingBlock>, val headings: List<OutlineEntry>, val code: List<String> = emptyList(), val thinking: Boolean = false)
 data class RenderedVersion(val parts: List<RenderedPart>)
 
 /** Background-only parser cache. View binding uses a separate renderer and only visible blocks. */
@@ -51,7 +51,7 @@ class ReadingRenderCache(private val conversation: Conversation, private val ren
             val node = if (value.role == "user") null else renderer.parse(content.text)
             val text = if (node == null) SpannableStringBuilder(content.text) else renderer.render(node)
             val renderedText = text.toString()
-            val blocks = textSlices(text).map { slice -> ReadingBlock(message, version, part, slice.start, slice.end, SpannableStringBuilder(text, slice.start, slice.end)) }
+            val blocks = textSlices(text).map { slice -> ReadingBlock(message, version, part, slice.start, slice.end, SpannableStringBuilder(text, slice.start, slice.end), content.thinking) }
             val headings = mutableListOf<OutlineEntry>()
             val code = mutableListOf<String>()
             var from = 0
@@ -71,7 +71,7 @@ class ReadingRenderCache(private val conversation: Conversation, private val ren
                     headings += OutlineEntry(title, heading.level, ReadingAnchor(message, version, part, position))
                 }
             })
-            RenderedPart(text, blocks, headings, code)
+            RenderedPart(text, blocks, headings, code, content.thinking)
         })
     }
 }
@@ -85,11 +85,25 @@ fun promptGroups(conversation: Conversation): List<Int> {
     }
 }
 
-data class ReaderRow(val key: String, val message: Int, val version: Int, val kind: String, val block: ReadingBlock? = null) {
-    val anchor get() = block?.anchor ?: ReadingAnchor(message, version)
+/** A prompt owns the thinking in its following replies; leading assistant messages own theirs. */
+fun thinkingTargets(conversation: Conversation, versions: Map<Int, Int>, groups: List<Int>, owner: Int): List<ReadingAnchor> {
+    val ownVersion = versions[owner] ?: conversation.messages[owner].selected
+    val user = conversation.messages[owner].versions[ownVersion].role == "user"
+    if (!user && groups[owner] != owner) return emptyList()
+    val messages = if (user) (owner + 1 until conversation.messages.size).takeWhile { groups[it] == owner } else listOf(owner)
+    return messages.flatMap { message ->
+        val version = versions[message] ?: conversation.messages[message].selected
+        conversation.messages[message].versions[version].parts.mapIndexedNotNull { part, value ->
+            if (value.thinking && value.text.isNotBlank()) ReadingAnchor(message, version, part) else null
+        }
+    }
 }
 
-fun readerRows(conversation: Conversation, versions: Map<Int, Int>, rendered: Map<Int, RenderedVersion>, groups: List<Int>, expanded: List<Int>, collapsed: Boolean): List<ReaderRow> = buildList {
+data class ReaderRow(val key: String, val message: Int, val version: Int, val kind: String, val block: ReadingBlock? = null, val part: Int = 0) {
+    val anchor get() = block?.anchor ?: ReadingAnchor(message, version, part)
+}
+
+fun readerRows(conversation: Conversation, versions: Map<Int, Int>, rendered: Map<Int, RenderedVersion>, groups: List<Int>, expanded: List<Int>, collapsed: Boolean, expandedThinking: Set<String> = emptySet()): List<ReaderRow> = buildList {
     conversation.messages.forEachIndexed { index, message ->
         val version = versions[index] ?: message.selected
         val group = groups[index]
@@ -97,7 +111,14 @@ fun readerRows(conversation: Conversation, versions: Map<Int, Int>, rendered: Ma
             if (index == group) add(ReaderRow("preview:$index", index, version, "preview"))
         } else {
             add(ReaderRow("header:$index:$version", index, version, "header"))
-            rendered[index]?.parts?.forEach { part -> part.blocks.filter { it.version == version }.forEach { add(ReaderRow("text:${it.key}", index, version, "text", it)) } }
+            rendered[index]?.parts?.forEachIndexed { p, part ->
+                if (part.blocks.firstOrNull()?.version == version) {
+                    val thinkingKey = "$index:$version:$p"
+                    if (part.thinking) add(ReaderRow("thinking:$thinkingKey", index, version, "thinking", part = p))
+                    if (!part.thinking || thinkingKey in expandedThinking) part.blocks.forEach { add(ReaderRow("text:${it.key}", index, version, "text", it)) }
+                    if (part.thinking && thinkingKey in expandedThinking) add(ReaderRow("thinkingEnd:$thinkingKey", index, version, "thinkingEnd", part = p))
+                }
+            }
             add(ReaderRow("footer:$index:$version", index, version, "footer"))
         }
     }

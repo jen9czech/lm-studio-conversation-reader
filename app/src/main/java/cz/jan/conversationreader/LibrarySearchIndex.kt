@@ -8,11 +8,11 @@ import android.database.sqlite.SQLiteOpenHelper
 data class LibrarySearchHit(val id: String, val snippet: String)
 
 /** Search-only index: never adds a linked conversation to Imported or modifies its source. */
-class LibrarySearchIndex(context: Context) : SQLiteOpenHelper(context.applicationContext, "conversation-search.db", null, 1) {
+class LibrarySearchIndex(context: Context) : SQLiteOpenHelper(context.applicationContext, "conversation-search.db", null, 2) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL("CREATE VIRTUAL TABLE document_text USING fts4(document_key, title, body, tokenize=unicode61, notindexed=document_key)")
     }
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) { db.execSQL("DROP TABLE IF EXISTS document_text"); onCreate(db) }
     @Synchronized fun contains(id: String): Boolean = readableDatabase.rawQuery("SELECT 1 FROM document_text WHERE document_key=? LIMIT 1", arrayOf(id)).use { it.moveToFirst() }
     @Synchronized fun put(id: String, conversation: Conversation) {
         val db = writableDatabase

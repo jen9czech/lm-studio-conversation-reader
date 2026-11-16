@@ -109,9 +109,16 @@ class NativeReaderAuditTest {
             compose.onNodeWithText("Thinking example").performClick()
             compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Show thinking").fetchSemanticsNodes().isNotEmpty() }
             compose.onAllNodesWithContentDescription("Hide thinking").assertCountEquals(0)
-            val copy = compose.onNodeWithContentDescription("Copy prompt").fetchSemanticsNode().boundsInRoot
-            val thinking = compose.onNodeWithContentDescription("Show thinking").fetchSemanticsNode().boundsInRoot
-            assertEquals(copy.center.y, thinking.center.y, 1f)
+            // Reader restoration can scroll between frames. Measure both controls only after
+            // they share a stable layout; use unclipped bounds for partially visible rows.
+            compose.waitUntil(10_000) {
+                val copyBounds = compose.onNodeWithContentDescription("Copy prompt").getUnclippedBoundsInRoot()
+                val thinkingBounds = compose.onNodeWithContentDescription("Show thinking").getUnclippedBoundsInRoot()
+                kotlin.math.abs(((copyBounds.top.value + copyBounds.bottom.value) / 2f) - ((thinkingBounds.top.value + thinkingBounds.bottom.value) / 2f)) <= 1f
+            }
+            val copy = compose.onNodeWithContentDescription("Copy prompt").getUnclippedBoundsInRoot()
+            val thinking = compose.onNodeWithContentDescription("Show thinking").getUnclippedBoundsInRoot()
+            assertEquals(((copy.top.value + copy.bottom.value) / 2f), ((thinking.top.value + thinking.bottom.value) / 2f), 1f)
             assertTrue(thinking.right <= copy.left)
             compose.onAllNodesWithText("Select text").assertCountEquals(0)
             compose.onNodeWithContentDescription("Show thinking").performClick()
@@ -130,9 +137,9 @@ class NativeReaderAuditTest {
             }
             compose.onNodeWithText("↑ Collapse thinking").performClick()
             compose.onNodeWithContentDescription("Show thinking").assertExists()
-            val details = compose.onNodeWithText("Generation details ↓").fetchSemanticsNode().boundsInRoot
-            val replyCopy = compose.onNodeWithContentDescription("Copy reply").fetchSemanticsNode().boundsInRoot
-            assertEquals(details.center.y, replyCopy.center.y, 1f)
+            val details = compose.onNodeWithText("Generation details ↓").getUnclippedBoundsInRoot()
+            val replyCopy = compose.onNodeWithContentDescription("Copy reply").getUnclippedBoundsInRoot()
+            assertEquals(((details.top.value + details.bottom.value) / 2f), ((replyCopy.top.value + replyCopy.bottom.value) / 2f), 1f)
             assertTrue(details.right <= replyCopy.left)
             compose.onNodeWithContentDescription("Search").performClick()
             compose.onNode(hasSetTextAction()).performTextInput("secretmarker")

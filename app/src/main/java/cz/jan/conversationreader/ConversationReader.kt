@@ -359,7 +359,7 @@ fun ConversationReader(entry: LibraryEntry, store: LibraryStore, fontSize: Float
                     val message = conversation.messages[row.message]
                     val version = message.versions[row.version]
                     val disclosure = collapsePrompts && row.message == groups[row.message] && (row.kind == "preview" || row.kind == "header")
-                    if (disclosure) {
+                    if (disclosure && row.kind == "preview") {
                         val closed = row.kind == "preview"
                         val highlighted = closed && row.message == highlightedGroup
                         Card(onClick = {
@@ -389,8 +389,8 @@ fun ConversationReader(entry: LibraryEntry, store: LibraryStore, fontSize: Float
                                 if (closed) {
                                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         Text(version.parts.joinToString("\n") { it.text }.ifBlank { "Empty prompt" },
-                                            maxLines = 2, overflow = TextOverflow.Ellipsis,
-                                            fontFamily = readerFontFamily(style.font), fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, style = MaterialTheme.typography.bodyMedium)
+                                            maxLines = 3, overflow = TextOverflow.Ellipsis,
+                                            fontFamily = readerFontFamily(style.font), fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, style = MaterialTheme.typography.bodySmall)
                                         replyPreviews[row.message]?.let { (words, headings) ->
                                             Text("${java.text.NumberFormat.getIntegerInstance().format(words)} words",
                                                 Modifier.fillMaxWidth().padding(top = 4.dp), style = MaterialTheme.typography.labelSmall, textAlign = androidx.compose.ui.text.style.TextAlign.End,
@@ -433,7 +433,9 @@ fun ConversationReader(entry: LibraryEntry, store: LibraryStore, fontSize: Float
                             val target = pending?.takeIf { anchor ->
                                 row.key == targetRow && anchor.message == block.message && anchor.version == block.version
                             }
-                            ReadingTextBlock(block, displayRenderer, fontSize, style, partMatches, activeMatch, version.role == "user", highlighted = row.message == highlightedGroup, preview = row.kind == "promptPreview", target = target, onOverflow = { overflow ->
+                            ReadingTextBlock(block, displayRenderer, fontSize, style, partMatches, activeMatch, version.role == "user", highlighted = row.message == highlightedGroup, preview = row.kind == "promptPreview", target = target, onCollapse = if (collapsePrompts && version.role == "user" && groups[row.message] in expanded) {
+                                { val group = groups[row.message]; saveResumePosition(captureViewport()); highlightedGroup = group; expanded = expanded - group; pendingRaw = null; scope.launch { snapshotFlow { currentRows.indexOfFirst { it.kind == "preview" && it.message == group } }.first { it >= 0 }.let { list.scrollToItem(it) } } }
+                            } else null, onOverflow = { overflow ->
                                 val key = "${row.message}:${row.version}"
                                 longPrompts = if (overflow) longPrompts + key else longPrompts - key
                             }, onView = { view, anchor ->
@@ -520,6 +522,16 @@ fun ConversationReader(entry: LibraryEntry, store: LibraryStore, fontSize: Float
                 if (conversation.messages.isEmpty()) item { Text("This conversation has no messages yet.") }
             }
             LazyScrollSlider(list, listOf(rows.map { it.key }, fontSize, style.lineSpacing, style.font, style.margin, viewportWidth))
+            if (!searching && currentGroup != null && (!collapsePrompts || currentGroup in expanded) &&
+                conversation.messages.getOrNull(currentGroup)?.versions?.getOrNull(versions[currentGroup] ?: 0)?.role == "user") {
+                SmallFloatingActionButton(onClick = {
+                    val group = groups.getOrNull(captureViewport().message) ?: return@SmallFloatingActionButton
+                    val index = rows.indexOfFirst { it.message == group && it.kind == "header" }
+                    if (index >= 0) { pendingRaw = null; scope.launch { list.animateScrollToItem(index) } }
+                }, modifier = Modifier.align(Alignment.BottomEnd).padding(end = 20.dp, bottom = 16.dp)) {
+                    Icon(painterResource(R.drawable.ic_up), contentDescription = "Go to start of current prompt")
+                }
+            }
         }
         HorizontalDivider()
         ReaderBlockNavigation(list, rows, rendered, conversation, versions, !searching && (!collapsePrompts || expanded.isNotEmpty()), { anchor -> jump(anchor) }, { progress -> if (!searching && (!collapsePrompts || expanded.isNotEmpty())) store.preferences.edit().putInt("readingProgress_${entry.id}", progress).apply() })
@@ -579,7 +591,7 @@ private fun ReaderContents(outline: List<OutlineEntry>, replyPreviews: Map<Int, 
 }
 
 @Composable
-private fun ReadingTextBlock(block: ReadingBlock, renderer: Markwon, fontSize: Float, style: ReaderStyle, matches: List<SearchMatch>, active: SearchMatch?, prompt: Boolean, highlighted: Boolean, preview: Boolean = false, target: ReadingAnchor?, onOverflow: (Boolean) -> Unit = {}, onView: (TextView, ReadingAnchor?) -> Unit) {
+private fun ReadingTextBlock(block: ReadingBlock, renderer: Markwon, fontSize: Float, style: ReaderStyle, matches: List<SearchMatch>, active: SearchMatch?, prompt: Boolean, highlighted: Boolean, preview: Boolean = false, target: ReadingAnchor?, onCollapse: (() -> Unit)? = null, onOverflow: (Boolean) -> Unit = {}, onView: (TextView, ReadingAnchor?) -> Unit) {
     val color = (if (prompt) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface).toArgb()
     val link = readerLinkColor().toArgb()
     val paragraphGap = with(LocalDensity.current) { 8.dp.roundToPx() }
@@ -597,12 +609,14 @@ private fun ReadingTextBlock(block: ReadingBlock, renderer: Markwon, fontSize: F
     val callback by rememberUpdatedState(onView)
     val overflowCallback by rememberUpdatedState(onOverflow)
     val inset = prompt || block.thinking
-    Surface(modifier = Modifier.padding(start = if (inset) 16.dp else 0.dp), border = if (prompt && highlighted) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null, color = if (prompt && highlighted) androidx.compose.ui.graphics.lerp(MaterialTheme.colorScheme.primaryContainer, androidx.compose.ui.graphics.Color.White, .18f) else if (prompt) MaterialTheme.colorScheme.primaryContainer else if (block.thinking) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surface, shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)) {
-        AndroidView(factory = { BlockTextView(it).apply { setTextIsSelectable(true); setPadding(0, 0, 0, 0) } }, update = { view ->
+    Surface(modifier = Modifier.padding(start = if (inset) 16.dp else 0.dp).then(if (onCollapse != null) Modifier.clickable(onClickLabel = "Collapse prompt and replies", onClick = onCollapse) else Modifier), border = if (prompt && highlighted) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null, color = if (prompt && highlighted) androidx.compose.ui.graphics.lerp(MaterialTheme.colorScheme.primaryContainer, androidx.compose.ui.graphics.Color.White, .18f) else if (prompt) MaterialTheme.colorScheme.primaryContainer else if (block.thinking) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surface, shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)) {
+        AndroidView(factory = { BlockTextView(it).apply { setPadding(0, 0, 0, 0) } }, update = { view ->
+            view.setTextIsSelectable(onCollapse == null)
+            view.setOnClickListener(if (onCollapse != null) android.view.View.OnClickListener { onCollapse() } else null)
             if (view.currentTextColor != color) view.setTextColor(color)
             if (view.linkTextColors.defaultColor != link) view.setLinkTextColor(link)
             if (view.tag !== text) { renderer.setParsedMarkdown(view, text); view.tag = text }
-            applyReaderTypography(view, fontSize, style, italic = prompt)
+            applyReaderTypography(view, if (prompt) fontSize * 0.85f else fontSize, style, italic = prompt)
             view.maxLines = if (preview) 3 else Int.MAX_VALUE
             view.ellipsize = if (preview) android.text.TextUtils.TruncateAt.END else null
             view.doOnLayout {

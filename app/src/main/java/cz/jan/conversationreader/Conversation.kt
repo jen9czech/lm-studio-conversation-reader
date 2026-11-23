@@ -84,7 +84,11 @@ object ConversationParser {
     }
     private fun JSONArray.contentObjects(): List<JSONObject> = (0 until length()).map { optJSONObject(it) ?: JSONObject() }
     private fun JSONArray.objects(): List<JSONObject> = (0 until length()).map { getJSONObject(it) }
-    private fun JSONObject.number(key: String): Double? = (opt(key) as? Number)?.toDouble()?.takeIf { it.isFinite() && it >= 0 }
+    private fun JSONObject.number(key: String): Double? = when (val value = opt(key)) {
+        is Number -> value.toDouble()
+        is String -> value.toDoubleOrNull()
+        else -> null
+    }?.takeIf { it.isFinite() && it >= 0 }
     private fun JSONObject.integer(key: String): Int? = number(key)?.toInt()
     private fun JSONObject.stringOrNull(key: String): String? = optString(key).takeIf { it.isNotBlank() && it != "null" }
 }

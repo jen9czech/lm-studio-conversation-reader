@@ -62,7 +62,7 @@ internal fun androidx.compose.foundation.lazy.LazyItemScope.LibrarySearchEmpty(c
 @Composable
 internal fun FolderBreadcrumb(path: String, onNavigate: (String) -> Unit) {
     SelectedGroupHeader(onBack = { onNavigate(path.substringBeforeLast('/', "")) }) {
-        Text(path.substringAfterLast('/'), Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 8.dp).semantics { stateDescription = "Current folder" },
+        Text(path.substringAfterLast('/'), Modifier.weight(1f).padding(vertical = 8.dp).semantics { stateDescription = "Current folder" },
             style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
     }
 }
@@ -70,8 +70,8 @@ internal fun FolderBreadcrumb(path: String, onNavigate: (String) -> Unit) {
 @Composable
 internal fun SelectedGroupHeader(onBack: () -> Unit, content: @Composable RowScope.() -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_back), "Back to groups") }
         content()
+        IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_back), "Back to groups") }
     }
 }
 

@@ -618,13 +618,22 @@ internal fun Stats(stats: GenerationStats, trailingActions: @Composable RowScope
             Spacer(Modifier.weight(1f))
             trailingActions()
         }
-        if (expanded) Text(listOf(
-            "Generation speed: ${stats.speed?.let { "${decimal(it)} tok/s" } ?: "Not recorded"}",
-            "Time to first token: ${stats.firstToken?.let { "${decimal(it)} s" } ?: "Not recorded"}",
-            "Total generation time: ${stats.duration?.let { "${decimal(it)} s" } ?: "Not recorded"}",
-            "Prompt tokens: ${stats.prompt ?: "Not recorded"}", "Generated tokens: ${stats.generated ?: "Not recorded"}",
-            "Total tokens: ${stats.total ?: "Not recorded"}", "Stop reason: ${if (stats.stop == "eosFound") "EOS token found" else stats.stop ?: "Not recorded"}"
-        ).joinToString("\n"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (expanded) Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            listOf(
+                "Generation speed" to (stats.speed?.let { "${decimal(it)} tok/s" } ?: "Not recorded"),
+                "Time to first token" to (stats.firstToken?.let { "${decimal(it)} s" } ?: "Not recorded"),
+                "Total generation time" to (stats.duration?.let { "${decimal(it)} s" } ?: "Not recorded"),
+                "Prompt tokens" to (stats.prompt?.toString() ?: "Not recorded"),
+                "Generated tokens" to (stats.generated?.toString() ?: "Not recorded"),
+                "Total tokens" to (stats.total?.toString() ?: "Not recorded"),
+                "Stop reason" to (if (stats.stop == "eosFound") "EOS token found" else stats.stop ?: "Not recorded")
+            ).forEach { (label, value) ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(value, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
     }
 }
 

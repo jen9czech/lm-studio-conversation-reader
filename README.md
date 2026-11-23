@@ -16,12 +16,20 @@ Compatible with **LM Studio 0.4.28 (Build 2)** conversation JSON files.
   <tr>
     <th>Your library</th>
     <th>Time to read</th>
-    <th>Make it comfortable</th>
+    <th>Prompt overview</th>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/library.png" width="260" alt="Conversation library with visible browsing views, tonal conversation rows and bottom navigation"></td>
+    <td><img src="docs/screenshots/library.png" width="260" alt="Conversation library with prompt and word counts and bottom navigation"></td>
     <td><img src="docs/screenshots/reading.png" width="260" alt="A formatted conversation with prompt, Markdown reply and reading navigation"></td>
-    <td><img src="docs/screenshots/settings.png" width="260" alt="Grouped settings for linked folders, prompt navigation and typography"></td>
+    <td><img src="docs/screenshots/prompts.png" width="260" alt="Collapsed prompt preview with reply word count and headings"></td>
+  </tr>
+</table>
+
+<table>
+  <tr><th>Sort your library</th><th>Reading preferences</th></tr>
+  <tr>
+    <td><img src="docs/screenshots/sorting.png" width="260" alt="Open sorting options for date, name and length with ascending and descending controls"></td>
+    <td><img src="docs/screenshots/preferences.png" width="260" alt="Reading preferences for text size, font and theme"></td>
   </tr>
 </table>
 

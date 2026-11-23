@@ -4,12 +4,11 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class LibraryFilteringTest {
-    @Test fun foldersSearchesMetadataOnlyWhileAllFilesCanMatchContent() {
-        assertTrue(matchesLinkedSearch("Fairytale", "Stories/123.conversation.json", "FAIRY", false, false))
-        assertTrue(matchesLinkedSearch("Fairytale", "Stories/123.conversation.json", "123", false, false))
-        assertTrue(matchesLinkedSearch("Fairytale", "Stories/123.conversation.json", "stories/", false, false))
-        assertFalse(matchesLinkedSearch("Fairytale", "Stories/123.conversation.json", "body-only", false, true))
-        assertTrue(matchesLinkedSearch("Fairytale", "Stories/123.conversation.json", "body-only", true, true))
-        assertFalse(matchesLinkedSearch("Fairytale", "Stories/123.conversation.json", "absent", true, false))
+    @Test fun defaultSearchMatchesDisplayedTitlesAndOnlyOptInSearchCanMatchContent() {
+        assertTrue(matchesLibraryConversation("Fairytale", " FAIRY ", false, false))
+        assertFalse(matchesLibraryConversation("Fairytale", "123.conversation.json", false, false))
+        assertFalse(matchesLibraryConversation("Fairytale", "body-only", false, true))
+        assertTrue(matchesLibraryConversation("Fairytale", "body-only", true, true))
+        assertFalse(matchesLibraryConversation("Fairytale", "absent", true, false))
     }
 }

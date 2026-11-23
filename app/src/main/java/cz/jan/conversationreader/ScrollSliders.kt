@@ -1,8 +1,5 @@
 package cz.jan.conversationreader
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -17,7 +14,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
@@ -87,13 +83,10 @@ private fun BoxScope.ScrollRail(scrolling: Boolean, scrollable: Boolean, fractio
         else { delay(1400); visible = false }
     }
     val color = MaterialTheme.colorScheme.primary
-    AnimatedVisibility(visible && scrollable, modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(48.dp), enter = fadeIn(), exit = fadeOut()) {
-        Canvas(Modifier.fillMaxSize().onSizeChanged { height = it.height.coerceAtLeast(1) }
-            .semantics {
-                contentDescription = "Scroll position"
-                progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f)
-                setProgress { seek(it.coerceIn(0f, 1f)); true }
-            }
+    if (visible && scrollable) {
+        // The scroll container itself provides stable accessibility scroll actions.
+        Canvas(Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(48.dp)
+            .onSizeChanged { height = it.height.coerceAtLeast(1) }
             .pointerInput(height) {
                 var travel = 1f
                 detectVerticalDragGestures(

@@ -1,0 +1,14 @@
+{
+  "appVersion": "0.9.2",
+  "versionCode": 28,
+  "date": "2026-11-17",
+  "apkBytes": 2506132,
+  "apkSha256": "9f0336f20958c6463fa09450414256c30c6d2b60ecc2dc16688f38b73da450f2",
+  "hostTests": {
+    "tests": 76,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "githubPublished": false
+}

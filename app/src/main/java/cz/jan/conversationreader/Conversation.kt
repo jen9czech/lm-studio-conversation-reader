@@ -6,7 +6,20 @@ import org.json.JSONObject
 data class Conversation(val title: String, val createdAt: Long?, val systemPrompt: String, val messages: List<Message>, val savedTokenCount: Long? = null) {
     val models get() = messages.flatMap { it.versions }.flatMap { it.parts }.mapNotNull { it.model }.distinct()
     val searchable get() = title + "\n" + messages.flatMap { it.versions }.flatMap { it.parts }.joinToString("\n") { it.text }
+
+    internal fun messageCounts(versions: Map<Int, Int>): MessageCounts {
+        var prompts = 0
+        var replies = 0
+        messages.forEachIndexed { index, message ->
+            when (message.versions[versions[index] ?: message.selected].role) {
+                "user" -> prompts++
+                "assistant" -> replies++
+            }
+        }
+        return MessageCounts(prompts, replies, messages.size)
+    }
 }
+internal data class MessageCounts(val prompts: Int, val replies: Int, val total: Int)
 data class Message(val versions: List<MessageVersion>, val selected: Int)
 data class MessageVersion(val role: String, val parts: List<ReplyPart>, val debug: List<String>)
 data class ReplyPart(val text: String, val model: String? = null, val stats: GenerationStats? = null, val thinking: Boolean = false)

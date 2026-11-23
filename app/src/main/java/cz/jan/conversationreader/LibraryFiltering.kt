@@ -1,7 +1,6 @@
 package cz.jan.conversationreader
 
-fun matchesLibraryMetadata(title: String, path: String, query: String): Boolean =
-    query.isBlank() || title.contains(query, ignoreCase = true) || path.contains(query, ignoreCase = true)
+internal fun matchesLibraryName(name: String, query: String): Boolean = name.contains(query.trim(), ignoreCase = true)
 
-fun matchesLinkedSearch(title: String, path: String, query: String, includeFullText: Boolean, fullTextMatch: Boolean): Boolean =
-    matchesLibraryMetadata(title, path, query) || (includeFullText && fullTextMatch)
+internal fun matchesLibraryConversation(title: String, query: String, includeFullText: Boolean, fullTextMatch: Boolean): Boolean =
+    matchesLibraryName(title, query) || (includeFullText && fullTextMatch)

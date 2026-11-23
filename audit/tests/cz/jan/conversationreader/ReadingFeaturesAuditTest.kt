@@ -25,12 +25,12 @@ class ReadingFeaturesAuditTest {
         assertTrue(ReadingState(preferences).bookmarkedIds().isEmpty())
         reading.setBookmarked("new", true)
         assertEquals(setOf("new"), ReadingState(preferences).bookmarkedIds())
-        val anchor = ReadingAnchor(4, 1, 2, 3759)
+        val anchor = ReadingAnchor(4, 1, 2, 3759, rowKey = "text:4:1:2:0", scrollOffset = 73, layoutKey = "test-layout")
         reading.saveAnchor("new", anchor)
         assertEquals(anchor, ReadingState(preferences).anchor("new"))
         assertEquals("Monospaced", reading.style().font)
         assertEquals(1f, reading.style().lineSpacing, 0f)
-        assertEquals(4, reading.style().margin)
+        assertEquals(20, reading.style().margin)
         reading.saveStyle(ReaderStyle("Serif"))
         assertEquals(ReaderStyle("Serif"), ReadingState(preferences).style())
         assertNull(ReadingAnchor.parse("broken"))
@@ -43,6 +43,10 @@ class ReadingFeaturesAuditTest {
             assertTrue(index.search("needle").getValue("linked_story").snippet.contains("needle"))
             assertTrue(index.search("pribeh").containsKey("linked_story"))
             assertTrue(index.search("hidden needle").containsKey("linked_story"))
+            val partial = index.search("hidden nee").getValue("linked_story")
+            assertEquals("hidden needle", partial.highlights.joinToString(" ") { partial.snippet.substring(it) })
+            assertTrue(index.search("nee").containsKey("linked_story"))
+            assertTrue(index.search("pri").containsKey("linked_story"))
             assertTrue(index.search("needle hidden").isEmpty())
             assertTrue(index.search("linked").isEmpty())
             index.put("linked_story", ConversationParser.parse("""{"name":"Replacement","messages":[]}"""))
@@ -184,4 +188,38 @@ class ReadingFeaturesAuditTest {
         assertFalse(part.text.contains("*Characters:*"))
         assertTrue(part.text.contains("Chapter 1: The Arrival."))
     }
+    @Test fun contentsUsesActualHeadingPositionsWhenProseAndHeadingsRepeat() {
+        val raw = "Field notes are introduced here.\n\n## **Field notes**\n\nThe second mention is here.\n\n### Field notes"
+        val reply = MessageVersion("assistant", listOf(ReplyPart(raw)), emptyList())
+        val conversation = Conversation("Outline", null, "", listOf(Message(listOf(reply), 0)))
+        val part = ReadingRenderCache(conversation, createMarkdownRenderer(context)).version(0, 0).parts.single()
+        val text = part.text.toString()
+        val firstHeading = text.indexOf("Field notes", 1)
+        val lastHeading = text.lastIndexOf("Field notes")
+        assertEquals(listOf("Field notes", "Field notes"), part.headings.map { it.label })
+        assertEquals(listOf(2, 3), part.headings.map { it.level })
+        assertEquals(listOf(firstHeading, lastHeading), part.headings.map { it.anchor.character })
+    }
+
+    @Test fun firstTwoHeadingLevelsStayLargerThanBodyAtEveryReadingSize() {
+        val text = createMarkdownRenderer(context).toMarkdown("# First heading\n\n## Second heading\n\nBody text.")
+        for (size in listOf(14f, 20f, 28f, 32f)) {
+            val view = android.widget.TextView(context)
+            applyReaderTypography(view, size, ReaderStyle())
+            fun measuredSize(label: String): Float {
+                val start = text.toString().indexOf(label)
+                val paint = android.text.TextPaint(view.paint)
+                text.getSpans(start, start + label.length, android.text.style.MetricAffectingSpan::class.java).forEach { it.updateMeasureState(paint) }
+                return paint.textSize
+            }
+            val body = measuredSize("Body text.")
+            val first = measuredSize("First heading")
+            val second = measuredSize("Second heading")
+            assertTrue("H1 must exceed H2", first > second)
+            assertTrue("H2 must exceed body at $size sp", second > body)
+            assertEquals(body * 1.45f, first, .1f)
+            assertEquals(body * 1.25f, second, .1f)
+        }
+    }
+
 }

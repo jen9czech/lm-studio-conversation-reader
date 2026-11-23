@@ -2,7 +2,7 @@
 
 **A pocket library for your LM Studio conversations.**
 
-Take your stories, research, coding answers and late-night rabbit holes with you. Conversation Reader turns saved LM Studio chats into a comfortable Android reading experience, with formatted replies, a searchable library and a place waiting for you when you come back.
+Take your stories, research, coding answers and late-night rabbit holes with you. Conversation Reader turns saved LM Studio chats into a comfortable Android reading experience, with formatted replies, a searchable library and a place waiting for you when you come back. A calm purple interface keeps Library, Recent and Bookmarked within easy reach.
 
 **Offline. Private. Open source.** No account or connection to LM Studio required.
 
@@ -19,20 +19,20 @@ Compatible with **LM Studio 0.4.28 (Build 2)** conversation JSON files.
     <th>Make it comfortable</th>
   </tr>
   <tr>
-    <td><img src="docs/screenshots/library.png" width="260" alt="Linked-folder library with folder counts and Continue reading"></td>
+    <td><img src="docs/screenshots/library.png" width="260" alt="Conversation library with visible browsing views, tonal conversation rows and bottom navigation"></td>
     <td><img src="docs/screenshots/reading.png" width="260" alt="A formatted conversation with prompt, Markdown reply and reading navigation"></td>
-    <td><img src="docs/screenshots/settings.png" width="260" alt="Settings for linked folders, collapsed prompts and text size"></td>
+    <td><img src="docs/screenshots/settings.png" width="260" alt="Grouped settings for linked folders, prompt navigation and typography"></td>
   </tr>
 </table>
 
 ## Give your conversations a second life
 
-- **Bring the whole archive.** Link a folder on your phone and browse its original subfolders, or see every conversation in one list. Titles come from the conversation itself. Folder counts and sorting by date, name or length help you find your way.
-- **Read comfortably.** Enjoy Markdown headings, tables, code blocks and selectable text. Thinking sections start collapsed and use Markdown when expanded. Choose Liberation Sans, Times-like Liberation Serif or Courier Prime, adjust the text size, and switch between light, dark and system themes.
-- **Find that answer again.** Folders filters file names, conversation titles and paths. All files also searches conversation text offline, with matching snippets and highlighted results. Search inside a conversation with a result counter and previous/next controls; accent-insensitive matching helps with Czech text too.
-- **Pick up where you left off.** Continue reading and Recent bring you back to your archive. A single star saves a conversation to Bookmarked. Remembered text positions and a separate Return to reading action help you keep your place while exploring search results or chapters.
+- **Bring the whole archive.** Link a folder on your phone and browse its original subfolders, or see every conversation in one list. Titles come from the conversation itself. Sort folders and models by name, and conversations by date, name or length. Models groups linked and imported conversations by the models used, including conversations with several models.
+- **Read comfortably.** Enjoy Markdown headings, tables, code blocks and selectable text. Thinking sections start collapsed and use Markdown when expanded. Choose the app’s system font, Times-like Liberation Serif or Courier Prime, adjust the text size, and switch between light, dark and system themes.
+- **Find that answer again.** Library search filters the folder names, model names, or conversation titles shown at the current level. In All files, turn on **Include conversation text** to search replies and prompts offline with highlighted snippets. Search inside a conversation with a result counter and previous/next controls.
+- **Pick up where you left off.** Continue reading and Recent bring you back to your archive. A single star saves a conversation to Bookmarked. Remembered text positions help you pick up where you left off.
 - **Move through long conversations.** Collapse prompt-and-reply groups, jump through prompts and headings in Contents, or drag the scroll slider. Reading progress and navigation stay together at the bottom.
-- **Keep the useful details.** Inspect model names, word counts, saved token totals and generation statistics when available. Read alternate saved message versions, copy text or code, and open a source file in an external reader.
+- **Keep the useful details.** Inspect model names, word counts, saved token totals and generation statistics when available. Read alternate saved message versions, copy text or code, and open a source file in an external reader. Hugging Face links open a repository when its identifier is saved, or search by the saved model name.
 
 All of this works on your phone, without running a model. Your next great reading session might already be sitting in your conversations folder.
 
@@ -42,9 +42,9 @@ All of this works on your phone, without running a model. Your next great readin
 2. Copy your LM Studio conversation files from your PC to a dedicated phone folder, then link that folder in Settings. You can also import individual files.
 3. Open a conversation and read. Star the ones you want to revisit.
 
-After copying more files, restart the app or choose **Update index now** in Settings. The library also checks the linked folder at startup and after changing folders. Cached metadata speeds up later scans; indexing shows progress and per-file errors.
+After copying more files, restart the app to update the library. The app also checks the linked folder after changing folders. Cached metadata speeds up later scans; indexing shows progress and per-file errors.
 
-Install updates over the existing app to retain your library and preferences. Published APKs are debug-signed testing builds; in-place updates require the same signing certificate.
+Install updates over the existing app to retain your library and preferences. Optimized release builds remove unused code and resources. They retain the existing testing signing certificate so current installations can update in place; a production signing-key migration has not been made.
 
 ## Your files stay yours
 
@@ -67,16 +67,18 @@ Open the project in Android Studio, or configure JDK 17 and Android SDK 36 with 
 Windows:
 
 ```powershell
-.\gradlew.bat assembleDebug testDebugUnitTest lintDebug
+.\gradlew.bat assembleRelease testDebugUnitTest lintRelease
 ```
 
 macOS/Linux:
 
 ```sh
-sh gradlew assembleDebug testDebugUnitTest lintDebug
+sh gradlew assembleRelease testDebugUnitTest lintRelease
 ```
 
-The Gradle wrapper downloads the required build dependencies. The APK is generated at `app/build/outputs/apk/debug/app-debug.apk`.
+The Gradle wrapper downloads the required build dependencies. The APK is generated at `app/build/outputs/apk/release/app-release.apk`.
+
+Small updates increment the patch number (for example, 0.8.6 → 0.8.7); larger feature releases may increment the minor number. Every installable update also increases Android’s version code.
 
 Tests use synthetic conversations. The optional [Android simulation suite](audit/README.md) also checks navigation, search, bookmarks, reading-position restoration, indexing and native font rendering. GitHub Actions runs build, test and lint checks. Layout, touch gestures and file-manager integration should also be checked on an Android device.
 

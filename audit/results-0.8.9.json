@@ -1,0 +1,17 @@
+{
+  "appVersion": "0.8.9",
+  "versionCode": 25,
+  "date": "2026-11-17",
+  "hostTestsPassed": 74,
+  "hostSimulatedApi": 35,
+  "physicalDeviceTestsPassed": 3,
+  "physicalDevice": "Motorola edge 60 neo",
+  "physicalAndroidVersion": "16",
+  "physicalApi": 36,
+  "isolatedTestApplicationId": "cz.jan.conversationreader.quality",
+  "lintErrors": 0,
+  "lintWarnings": 34,
+  "sameSigningCertificateAs": "0.8.8",
+  "apkSha256": "b3730debdc21fa299779dac2cfc1baa2b5121862fdf21ed5d1265d7289d45a0d",
+  "remoteEmulatorWorkflowRun": false
+}

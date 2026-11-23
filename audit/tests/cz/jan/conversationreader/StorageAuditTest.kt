@@ -50,25 +50,98 @@ class StorageAuditTest {
         assertEquals(2, provider.opens)
         assertEquals("A changed conversation title", updated.single().title)
     }
+    @Test fun failedFolderRefreshRetainsLastCompleteIndex() = runBlocking {
+        val store = LibraryStore(context)
+        store.scanFolder()
+        val index = File(context.filesDir, "folder-index.json")
+        val before = index.readBytes()
+        provider.failQuery = true
+        assertTrue(runCatching { store.scanFolder() }.isFailure)
+        assertArrayEquals(before, index.readBytes())
+        assertEquals("Cached title", store.cachedFolder().single().title)
+    }
     @Test fun corruptFileKeepsFilenameAndDoesNotCrashWholeScan() = runBlocking {
         provider.raw = "not json"
         val files = LibraryStore(context).scanFolder()
         assertEquals("sample.conversation.json", files.single().title)
         assertNull(files.single().words)
     }
+
+    @Test fun savedImportsReuseMetadataAndReindexAfterChange() {
+        val directory = File(context.filesDir, "conversations").apply { mkdirs() }
+        val file = File(directory, "cached.json").apply { writeText(provider.raw) }
+        val store = LibraryStore(context)
+        val conversation = ConversationParser.parse(provider.raw)
+        store.searchIndex.putImport("cached", conversation, ImportMetadata(
+            file.lastModified(), file.length(), conversation.title, conversation.createdAt,
+            conversation.wordCount(), conversation.models))
+        assertEquals("Cached title", store.load().first.single().metadata.title)
+        assertEquals("Cached title", LibraryStore(context).load().first.single().metadata.title)
+
+        file.writeText(provider.raw.replace("Cached title", "Changed synthetic title"))
+        val updated = store.load().first.single().metadata
+        assertEquals("Changed synthetic title", updated.title)
+        assertTrue(store.searchIndex.search("Changed synthetic title").containsKey("cached"))
+        assertFalse(store.searchIndex.search("Cached title").containsKey("cached"))
+    }
+
+    @Test fun successfulFolderChangePrunesOldLinkedSearchRowsWithoutRemovingImports() = runBlocking {
+        val store = LibraryStore(context)
+        val old = store.scanFolder().single()
+        val oldId = store.linkedId(old.uri)
+        File(context.filesDir, "conversations/manual.json").writeText(provider.raw.replace("Cached title", "Manual example"))
+        store.load()
+
+        store.preferences.edit().putString("linkedFolder", "content://audit.documents/tree/replacement").commit()
+        provider.failQuery = true
+        assertTrue(runCatching { store.scanFolder() }.isFailure)
+        assertTrue(store.searchIndex.contains(oldId))
+
+        provider.failQuery = false
+        provider.raw = provider.raw.replace("Hello world", "Replacement passage")
+        val current = store.scanFolder().single()
+        assertFalse(store.searchIndex.contains(oldId))
+        assertTrue(store.searchIndex.search("Replacement passage").containsKey(store.linkedId(current.uri)))
+        assertTrue(store.searchIndex.search("Manual example").containsKey("manual"))
+    }
+
+    @Test fun removedImportLeavesTheNextReadingAndClearsItsOwnState() {
+        val store = LibraryStore(context)
+        val kept = LibraryEntry("sample-other", ConversationParser.parse(provider.raw), 1)
+        val removed = kept.copy(id = "sample")
+        val file = File(context.filesDir, "conversations/sample.json").apply { writeText(provider.raw) }
+        store.load()
+        for (item in listOf(kept, removed)) {
+            store.reading.record(item, store.reference(item))
+            store.reading.setBookmarked(item.id, true)
+            store.reading.saveResumeAnchor(item.id, ReadingAnchor(0, character = 4))
+            store.opened(item.id)
+        }
+        store.preferences.edit().putInt("version_sample_0", 1).putInt("version_sample-other_0", 2)
+            .putBoolean("favorite_sample", true).putInt("readingProgress_sample", 42).commit()
+
+        store.remove(removed.id)
+        assertFalse(file.exists())
+        assertFalse(store.searchIndex.contains(removed.id))
+        assertTrue(store.searchIndex.importedMetadata().isEmpty())
+        assertEquals(kept.id, store.referenceId(store.reading.recent().single().reference))
+        assertEquals(setOf(kept.id), store.reading.bookmarkedIds())
+        assertNull(store.reading.resumeAnchor(removed.id))
+        assertEquals(0L, store.recent(removed.id))
+        assertFalse(store.preferences.contains("version_sample_0"))
+        assertFalse(store.preferences.contains("readingProgress_sample"))
+        assertEquals(2, store.preferences.getInt("version_sample-other_0", 0))
+    }
 }
 
 class AuditDocumentsProvider : ContentProvider() {
     var opens = 0
+    var failQuery = false
     var modified = 100L
     var raw = """{"name":"Cached title","messages":[{"versions":[{"role":"user","content":[{"type":"text","text":"Hello world"}]}]}]}"""
     override fun onCreate() = true
     override fun query(uri: Uri, projection: Array<out String>?, selection: String?, args: Array<out String>?, order: String?): Cursor {
-        // Robolectric uses the host File.renameTo implementation. Windows cannot replace an existing
-        // destination like Android can. The app has already read the old index before this query.
-        // Remove only this test sandbox's index so these tests exercise reuse/invalidation rather
-        // than Windows rename semantics; Android atomic replacement still needs device testing.
-        File(context!!.filesDir, "folder-index.json").delete()
+        if (failQuery) throw java.io.IOException("Synthetic unavailable folder")
         val columns = projection ?: arrayOf("document_id", "_display_name", "mime_type", "last_modified", "_size")
         return MatrixCursor(columns).apply { addRow(columns.map { when (it) {
             "document_id" -> "root/sample"; "_display_name" -> "sample.conversation.json"; "mime_type" -> "application/json"; "last_modified" -> modified; "_size" -> raw.toByteArray().size.toLong(); else -> null

@@ -4,6 +4,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class ConversationMetricsTest {
+    @Test fun countsFivePromptsAndFiveRepliesAsTenMessages() {
+        val prompt = MessageVersion("user", listOf(ReplyPart("Prompt")), emptyList())
+        val reply = MessageVersion("assistant", listOf(ReplyPart("Thinking", thinking = true), ReplyPart("Reply")), emptyList())
+        val messages = List(5) { listOf(Message(listOf(prompt), 0), Message(listOf(reply, reply), 0)) }.flatten()
+        val conversation = Conversation("Example", null, "", messages)
+        assertEquals(MessageCounts(5, 5, 10), conversation.messageCounts(emptyMap()))
+        assertEquals(5, promptGroups(conversation).distinct().size)
+    }
+
     @Test fun folderCountsIncludeDescendantsButNotDirectories() {
         val counts = folderFileCounts(listOf("A" to true, "A/sub" to true, "A/one.json" to false, "A/sub/two.json" to false, "AB/three.json" to false))
         assertEquals(2, counts["A"])

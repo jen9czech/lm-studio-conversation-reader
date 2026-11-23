@@ -2,7 +2,7 @@
 
 ## Liberation Fonts 2.1.5
 
-Liberation Sans and Serif, with regular, bold, italic and bold italic faces, provide Arial-style and Times New Roman-style reading fonts.
+Liberation Serif, with regular, bold, italic and bold italic faces, provides a Times New Roman-style reading font. Sans-serif uses the Android system font and requires no bundled font files.
 
 Upstream: https://github.com/liberationfonts/liberation-fonts/releases/tag/2.1.5
 

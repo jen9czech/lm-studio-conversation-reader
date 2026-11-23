@@ -2,7 +2,6 @@ package cz.jan.conversationreader
 
 import android.content.Intent
 import android.net.Uri
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -16,16 +15,26 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.input.key.*
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,133 +43,214 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 
-internal val LibraryViews = listOf("Folders", "All files", "Imported", "Recent", "Bookmarked")
+internal val LibraryViews = listOf("Folders", "All files", "Models", "Imported", "Recent", "Bookmarked")
 
 @Composable
 fun ReaderToolbar(searching: Boolean, query: String, onQuery: (String) -> Unit, onSearch: () -> Unit, onCloseSearch: () -> Unit, onPreferences: () -> Unit, title: String? = null, subtitle: String? = null, onBack: (() -> Unit)? = null, extraActions: @Composable RowScope.() -> Unit = {}, currentView: String? = null, onMenuView: ((String) -> Unit)? = null, searchHint: String = "Search") {
     var menuOpen by remember { mutableStateOf(false) }
     val focus = remember { FocusRequester() }
+    val searchButton = remember { FocusRequester() }
+    var returnToSearchButton by remember { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
-    LaunchedEffect(searching) { if (searching) { focus.requestFocus(); keyboard?.show() } }
-    Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+    val inputMode = LocalInputModeManager.current
+    fun exitSearch() {
+        returnToSearchButton = true
+        focusManager.clearFocus(force = true)
+        keyboard?.hide()
+        onCloseSearch()
+    }
+    LaunchedEffect(searching) {
         if (searching) {
-            IconButton(onClick = { focusManager.clearFocus(force = true); keyboard?.hide(); onCloseSearch() }) { Icon(painterResource(R.drawable.ic_back), "Exit search") }
-            BasicTextField(query, onQuery, singleLine = true, textStyle = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onSurface), cursorBrush = SolidColor(MaterialTheme.colorScheme.primary), modifier = Modifier.weight(1f).focusRequester(focus), keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }), decorationBox = { inner ->
-                Box { if (query.isEmpty()) Text(searchHint, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.titleLarge); inner() }
-            })
-            IconButton(onClick = { onQuery("") }) { Icon(painterResource(R.drawable.ic_close), "Clear search") }
-        } else {
-            if (onBack != null) IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_back), "Back") }
-            else Box(Modifier.padding(end = 8.dp)) {
-                if (onMenuView != null) {
-                    IconButton(onClick = { menuOpen = true }) {
-                        Icon(painterResource(R.drawable.ic_reader), "Open navigation menu", tint = androidx.compose.ui.graphics.Color.Unspecified, modifier = Modifier.size(48.dp))
-                    }
-                    DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                        LibraryViews.forEach { view ->
-                            DropdownMenuItem(text = { Text(view) }, leadingIcon = { Text(if (view == currentView) "✓" else "", Modifier.width(24.dp)) }, modifier = Modifier.semantics { selected = view == currentView }, onClick = { menuOpen = false; onMenuView(view) })
-                        }
-                        HorizontalDivider()
-                        DropdownMenuItem(text = { Text("Settings") }, leadingIcon = { Icon(painterResource(R.drawable.ic_settings), null) }, onClick = { menuOpen = false; onPreferences() })
-                        HorizontalDivider()
-                        Text("Version ${BuildConfig.VERSION_NAME}", Modifier.padding(horizontal = 16.dp, vertical = 12.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                } else Icon(painterResource(R.drawable.ic_reader), "LM Conversation Reader", tint = androidx.compose.ui.graphics.Color.Unspecified, modifier = Modifier.size(48.dp))
-            }
-            Column(Modifier.weight(1f)) {
-                if (title != null) Text(title, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            IconButton(onClick = onSearch) { Icon(painterResource(R.drawable.ic_search), "Search") }
-            extraActions()
-        }
-        if (!searching) IconButton(onClick = onPreferences) {
-            if (title != null) Icon(painterResource(R.drawable.ic_settings), "Settings") else Text("Aa", style = MaterialTheme.typography.titleMedium)
+            focus.requestFocus()
+            keyboard?.show()
+        } else if (returnToSearchButton) {
+            searchButton.requestFocus()
+            returnToSearchButton = false
         }
     }
+    val window = LocalWindowInfo.current.containerSize
+    val titleSize = MaterialTheme.typography.titleLarge.fontSize
+    val stackTitle = title != null && with(LocalDensity.current) {
+        window.width.toDp() < 340.dp * (titleSize.toDp() / 22.dp)
+    }
+    Column {
+        Row(Modifier.fillMaxWidth().heightIn(min = if (stackTitle && !searching) 48.dp else 64.dp).padding(horizontal = 8.dp)
+            .onPreviewKeyEvent { event ->
+                if (searching && event.key == Key.Escape && event.type == KeyEventType.KeyDown) {
+                    inputMode.requestInputMode(InputMode.Keyboard)
+                    exitSearch()
+                    true
+                } else false
+            }, verticalAlignment = Alignment.CenterVertically) {
+            if (searching) {
+                IconButton(onClick = ::exitSearch) { Icon(painterResource(R.drawable.ic_back), "Exit search") }
+                BasicTextField(query, onQuery, singleLine = true, textStyle = MaterialTheme.typography.titleLarge.copy(color = MaterialTheme.colorScheme.onSurface), cursorBrush = SolidColor(MaterialTheme.colorScheme.primary), modifier = Modifier.weight(1f).focusRequester(focus).semantics { contentDescription = searchHint }, keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search), keyboardActions = KeyboardActions(onSearch = { keyboard?.hide() }), decorationBox = { inner ->
+                    Box(Modifier.fillMaxWidth().heightIn(min = 48.dp), contentAlignment = Alignment.CenterStart) { if (query.isEmpty()) Text(searchHint, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis); inner() }
+                })
+                if (query.isNotEmpty()) IconButton(onClick = { onQuery("") }) { Icon(painterResource(R.drawable.ic_close), "Clear search") }
+            } else {
+                if (onBack != null) IconButton(onClick = onBack) { Icon(painterResource(R.drawable.ic_back), "Back") }
+                else Box(Modifier.padding(end = 8.dp)) {
+                    if (onMenuView != null) {
+                        IconButton(onClick = { menuOpen = true }) {
+                            Icon(painterResource(R.drawable.ic_reader), "Open navigation menu", tint = androidx.compose.ui.graphics.Color.Unspecified, modifier = Modifier.size(36.dp))
+                        }
+                        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+                            LibraryViews.forEach { view ->
+                                DropdownMenuItem(text = { Text(view) }, leadingIcon = { Text(if (view == currentView) "✓" else "", Modifier.width(24.dp)) }, modifier = Modifier.semantics { selected = view == currentView }, onClick = { menuOpen = false; onMenuView(view) })
+                            }
+                            HorizontalDivider()
+                            DropdownMenuItem(text = { Text("Settings") }, leadingIcon = { Icon(painterResource(R.drawable.ic_settings), null) }, onClick = { menuOpen = false; onPreferences() })
+                            HorizontalDivider()
+                            Text("Version ${BuildConfig.VERSION_NAME}", Modifier.padding(horizontal = 16.dp, vertical = 12.dp), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                    } else Icon(painterResource(R.drawable.ic_reader), "LM Conversation Reader", tint = androidx.compose.ui.graphics.Color.Unspecified, modifier = Modifier.size(36.dp))
+                }
+                Column(Modifier.weight(1f)) {
+                    if (!stackTitle) ToolbarTitle(title, subtitle)
+                }
+                IconButton(onClick = onSearch, modifier = Modifier.focusRequester(searchButton)) { Icon(painterResource(R.drawable.ic_search), "Search") }
+                extraActions()
+            }
+            if (!searching) IconButton(onClick = onPreferences, modifier = if (title == null) Modifier.semantics { contentDescription = "Reading preferences" } else Modifier) {
+                if (title != null) Icon(painterResource(R.drawable.ic_settings), "Settings") else Text("Aa", style = MaterialTheme.typography.titleMedium)
+            }
+        }
+        if (stackTitle && !searching) Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp)) {
+            ToolbarTitle(title, subtitle)
+        }
+    }
+}
+
+@Composable
+private fun ToolbarTitle(title: String?, subtitle: String?) {
+    if (title != null) Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+    if (subtitle != null) Text(subtitle, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable
 fun InfoRow(label: String, value: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-        Text(value, style = MaterialTheme.typography.bodyMedium)
+        Text(value, Modifier.weight(1.5f), style = MaterialTheme.typography.bodyMedium)
     }
 }
 
 @Composable
-fun SearchResultsBar(current: Int, total: Int, onPrevious: () -> Unit, onNext: () -> Unit) {
+fun SearchResultsBar(current: Int, total: Int, complete: Boolean, onPrevious: () -> Unit, onNext: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(if (total == 0) "0 results" else "${current + 1} of $total", Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
-        IconButton(onClick = onPrevious, enabled = total > 0) { Icon(painterResource(R.drawable.ic_up), "Previous result") }
-        IconButton(onClick = onNext, enabled = total > 0) { Icon(painterResource(R.drawable.ic_down), "Next result") }
+        val status = when {
+            !complete -> "Searching…"
+            total == 0 -> "No matches"
+            else -> "${current + 1} of $total"
+        }
+        Text(status, Modifier.weight(1f).padding(vertical = 8.dp).semantics {
+            if (complete) liveRegion = LiveRegionMode.Polite
+            if (total > 0) contentDescription = "Match ${current + 1} of $total"
+        }, style = MaterialTheme.typography.labelSmall)
+        if (total > 0) {
+            IconButton(onClick = onPrevious) { Icon(painterResource(R.drawable.ic_up), "Previous result") }
+            IconButton(onClick = onNext) { Icon(painterResource(R.drawable.ic_down), "Next result") }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PreferencesScreen(main: Boolean, folder: String?, fontSize: Float, theme: String, collapse: Boolean, onClose: () -> Unit, onFolder: () -> Unit, onFont: (Float) -> Unit, onTheme: (String) -> Unit, onCollapse: (Boolean) -> Unit, style: ReaderStyle = ReaderStyle(), onStyle: (ReaderStyle) -> Unit = {}) {
+    val context = LocalContext.current
+    val controls: @Composable ColumnScope.() -> Unit = {
+        if (main) {
+            DetailSection("Linked folder") {
+                FilledTonalButton(onClick = onFolder, modifier = Modifier.fillMaxWidth()) {
+                    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                        Text(if (folder == null) "Link a folder" else "Change folder")
+                        folder?.let { Text(Uri.decode(it).substringAfterLast(":"), style = MaterialTheme.typography.bodySmall) }
+                    }
+                }
+            }
+            DetailSection("Collapse by prompts") {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Show two-line prompt previews. Tap to read the full prompt and replies.", Modifier.weight(1f).padding(end = 12.dp), style = MaterialTheme.typography.bodySmall)
+                    Switch(collapse, onCollapse, modifier = Modifier.semantics { contentDescription = "Show two-line prompt previews" })
+                }
+            }
+        }
+        DetailSection("Text size", compact = !main) {
+            Text("${fontSize.toInt()} sp", style = MaterialTheme.typography.titleMedium)
+            Slider(fontSize, onFont, valueRange = 14f..26f, steps = 11, modifier = Modifier.semantics {
+                contentDescription = "Text size"
+                stateDescription = "${fontSize.toInt()} sp"
+            })
+        }
+        DetailSection("Font", compact = !main) {
+            Column(Modifier.selectableGroup()) {
+                listOf("Sans-serif", "Serif", "Monospaced").forEach { font ->
+                    Row(Modifier.fillMaxWidth().selectable(selected = style.font == font, role = Role.RadioButton, onClick = { onStyle(style.copy(font = font)) }).padding(vertical = if (main) 4.dp else 0.dp), verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(selected = style.font == font, onClick = null)
+                        Column(Modifier.padding(start = 8.dp)) {
+                            Text(readerFontName(font), fontFamily = readerFontFamily(font), style = MaterialTheme.typography.titleMedium)
+                        }
+                    }
+                }
+            }
+        }
+        DetailSection("Theme", compact = !main) {
+            Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf("Light", "Dark", "System").forEach { choice -> ThemeChoice(choice, theme, onTheme, Modifier.weight(if (choice == "System") 1.7f else 1f)) }
+            }
+        }
+
+        if (main) DetailSection("About") {
+            Text("LM Studio Conversation Reader", style = MaterialTheme.typography.titleMedium)
+            TextButton(onClick = {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/jen9czech/lm-studio-conversation-reader")))
+            }, modifier = Modifier.semantics { onClick(label = "Open GitHub project", action = null) }) {
+                Text("Version ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE}) ↗\nUpdated ${BuildConfig.UPDATED_DATE}")
+            }
+        }
+    }
+    if (main) ReaderDetailScreen("Settings", onClose, content = controls)
+    else ControlsSheet("Reading preferences", onClose, allowPartial = true, content = controls)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun ControlsSheet(title: String, onClose: () -> Unit, allowPartial: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
+    val window = LocalWindowInfo.current.containerSize
+    val density = LocalDensity.current
+    val height = with(density) { window.height.toDp() }
+    val expanded = !allowPartial || height < 600.dp || window.width > window.height || density.fontScale >= 1.5f
+    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = expanded)) {
+        Column(Modifier.fillMaxWidth().heightIn(max = height * .82f).padding(horizontal = 16.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onClose) { Icon(painterResource(R.drawable.ic_back), "Close ${title.lowercase()}") }
+                Text(title, Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleLarge)
+            }
+            val scroll = rememberScrollState()
+            Box(Modifier.weight(1f, fill = false)) {
+                Column(Modifier.fillMaxWidth().verticalScroll(scroll).padding(bottom = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(if (allowPartial) 6.dp else 12.dp), content = content)
+                PlainScrollSlider(scroll)
+            }
+        }
     }
 }
 
 @Composable
-fun PreferencesScreen(main: Boolean, folder: String?, fontSize: Float, theme: String, collapse: Boolean, onClose: () -> Unit, onFolder: () -> Unit, onFont: (Float) -> Unit, onTheme: (String) -> Unit, onCollapse: (Boolean) -> Unit, style: ReaderStyle = ReaderStyle(), onStyle: (ReaderStyle) -> Unit = {}, onRescan: () -> Unit = {}) {
-    val context = LocalContext.current
+internal fun ReaderDetailScreen(title: String, onClose: () -> Unit, compact: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxSize().systemBarsPadding()) {
+            Column(Modifier.fillMaxSize().safeDrawingPadding()) {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = onClose) { Icon(painterResource(R.drawable.ic_back), "Back") }
-                    Text(if (main) "Settings" else "Reading preferences", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                    Text(title, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f).semantics { heading() })
                 }
-                val preferenceScroll = rememberScrollState()
+                val scroll = rememberScrollState()
                 Box(Modifier.weight(1f)) {
-                Column(Modifier.fillMaxSize().verticalScroll(preferenceScroll).padding(20.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                    if (main) {
-                        PreferenceSection("Linked folder") {
-                            Text(folder?.let { Uri.decode(it).substringAfterLast(":") } ?: "No folder selected", style = MaterialTheme.typography.bodyLarge)
-                            Button(onClick = onFolder) { Text(if (folder == null) "Link folder" else "Change folder") }
-                            OutlinedButton(onClick = onRescan, enabled = folder != null) { Text("Update index now") }
-                        }
-                        PreferenceSection("Collapse by prompts") {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Show two-line prompt previews. Tap to read the full prompt and replies.", Modifier.weight(1f).padding(end = 12.dp), style = MaterialTheme.typography.bodyMedium)
-                                Switch(collapse, onCollapse, modifier = Modifier.semantics { contentDescription = "Show two-line prompt previews" })
-                            }
-                        }
-                    }
-                    PreferenceSection("Text size") {
-                        Text("${fontSize.toInt()} sp", style = MaterialTheme.typography.titleMedium)
-                        Slider(fontSize, onFont, valueRange = 14f..26f, steps = 11)
-                        Text("A comfortable size for reading", fontSize = fontSize.sp, fontFamily = readerFontFamily(style.font))
-                    }
-                    PreferenceSection("Font") {
-                        Column(Modifier.selectableGroup()) {
-                            listOf("Sans-serif", "Serif", "Monospaced").forEach { font ->
-                                Row(Modifier.fillMaxWidth().selectable(selected = style.font == font, role = Role.RadioButton, onClick = { onStyle(style.copy(font = font)) }).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    RadioButton(selected = style.font == font, onClick = null)
-                                    Column(Modifier.padding(start = 8.dp)) {
-                                        Text(readerFontName(font), fontFamily = readerFontFamily(font), fontSize = 20.sp)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    PreferenceSection("Theme") {
-                        Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            listOf("Light", "Dark", "System").forEach { choice ->
-                                val selected = choice == theme
-                                Surface(modifier = Modifier.weight(1f).height(72.dp).selectable(selected = selected, role = Role.RadioButton, onClick = { onTheme(choice) }), shape = MaterialTheme.shapes.medium, color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant, border = if (selected) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        if (choice == "System") Text("System", fontSize = 16.sp, maxLines = 1, modifier = Modifier.padding(horizontal = 4.dp))
-                                        else Icon(painterResource(if (choice == "Light") R.drawable.ic_sun else R.drawable.ic_moon), "$choice theme", Modifier.size(28.dp))
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    if (main) PreferenceSection("About") {
-                        Text("LM Studio Conversation Reader", style = MaterialTheme.typography.titleMedium)
-                        Text("Version ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})\nUpdated ${BuildConfig.UPDATED_DATE}")
-                        TextButton(onClick = { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/jen9czech/lm-studio-conversation-reader"))) }) { Text("GitHub project ↗") }
-                    }
-                }
-                PlainScrollSlider(preferenceScroll)
+                    Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(if (compact) 16.dp else 20.dp), verticalArrangement = Arrangement.spacedBy(if (compact) 10.dp else 20.dp), content = content)
+                    PlainScrollSlider(scroll)
                 }
             }
         }
@@ -168,9 +258,23 @@ fun PreferencesScreen(main: Boolean, folder: String?, fontSize: Float, theme: St
 }
 
 @Composable
-private fun PreferenceSection(title: String, content: @Composable ColumnScope.() -> Unit) {
-    OutlinedCard(Modifier.fillMaxWidth()) { Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        content()
-    } }
+internal fun DetailSection(title: String, compact: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 10.dp)) {
+        Text(title, Modifier.padding(start = 4.dp).semantics { heading() }, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+            Column(Modifier.fillMaxWidth().padding(if (compact) 12.dp else 18.dp), verticalArrangement = Arrangement.spacedBy(if (compact) 4.dp else 12.dp), content = content)
+        }
+    }
+}
+
+@Composable
+private fun ThemeChoice(choice: String, theme: String, onTheme: (String) -> Unit, modifier: Modifier) {
+    val selected = choice == theme
+    Surface(modifier = modifier.heightIn(min = 52.dp).selectable(selected = selected, role = Role.RadioButton, onClick = { onTheme(choice) }), shape = MaterialTheme.shapes.large,
+        color = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh) {
+        Box(Modifier.padding(horizontal = 4.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+            if (choice == "System") Text("System", style = MaterialTheme.typography.labelMedium)
+            else Icon(painterResource(if (choice == "Light") R.drawable.ic_sun else R.drawable.ic_moon), "$choice theme", Modifier.size(25.dp))
+        }
+    }
 }

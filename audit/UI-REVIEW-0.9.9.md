@@ -1,0 +1,32 @@
+# Conversation Reader UI review
+
+19 November 2026 · version 0.9.9
+
+**Start with the library's vertical layout.** On a 360 × 640 dp phone with Continue reading visible, only 157 dp remained for browsing files. At 115% interface text, that fell to 139 dp. Scrolling to the seventh file left the header and resume card pinned. The next design should give that space back as soon as someone starts browsing.
+
+## Recommended changes
+
+| Priority | Observation | Design change | Acceptance check |
+| --- | --- | --- | --- |
+| 1 · Library | The Imported list had no visible area at 720 × 320 dp with Continue reading present. Even the fully expanded conversation sort sheet clipped Done. | Keep Library, Recent, and Bookmarked as destinations. Put the library heading, compact resume card, import action, and count/sort row in the scrolling list. Let a short sort sheet scroll, with Done always reachable. A populated library can use simple divided rows, with a filled surface reserved for Continue reading. | A reader can open the fourth file and change its sort on a short landscape screen. The resume card is available at the top and scrolls away. |
+| 2 · Conversation rows | On the Motorola, “A quiet evening in Prague” occupied two lines in Imported and one line inside its model group. The extra menu in Imported took space from the title. | Give every title the same width. Keep the star at the trailing edge and move the import-only menu beside the date on the metadata line. Use the same title, words, and date hierarchy in every view. | The same title wraps identically across views at the same width and text scale. Both actions have distinct 48 dp touch targets. |
+| 3 · Reading preferences | Opening Aa covered the passage with a full screen and a generic sample sentence. The ordinary collapsed prompt preview also omits the reading-size setting that expanded prose uses. | In portrait, open Aa as a bottom sheet and apply size, font, and theme live to the visible paragraph. Use a full-height scrollable presentation when space or accessibility text requires it. Apply the text size to collapsed previews too. Keep main Settings full screen. | With the same passage in view, moving from 14 to 26 sp or choosing another font gives visible feedback. Dismissing Aa preserves the reading position. |
+| 4 · Long conversations | Four visible collapsed cards repeated “Expand prompt and replies” four times. The Contents implementation opens at the top and gives the current section no marker. | Lead each preview with its two lines of prompt text and a disclosure chevron. Keep the last-opened highlight and announce the action and expanded state to screen readers. Open Contents at the current prompt or heading and label it “Current section.” | From the middle of a long reply, opening Contents shows the current heading immediately. Ordinary conversation opens still start collapsed. |
+| 5 · Search | Opening reader search immediately displayed “0 results,” Clear, and disabled result navigation. An unlinked Folders view suggested restarting, including while typing a query. On the phone and in the simulation, the search field retained focus during the typing checks. | Keep the shared frameless search field. Show Clear only when there is text. In the reader, show the counter and arrows below the field after matches arrive. For a completed miss, show “No matches.” In the library, keep filtering free of result navigation. Offer **Link a folder** in the unlinked state and **Clear search** when a filter excludes everything. | Empty, searching, matching, and unsuccessful queries give distinct feedback. Back leaves search in one action. |
+
+## Two refinements worth including
+
+- **Use the space available for reading.** At 840 dp wide the reply used an 800 dp column, measuring 103–107 characters per line in ordinary English prose. Center a narrower column on large screens. Try 65–80 characters per line at the chosen font size as a design target. Phone margins can stay aligned with the conversation title.
+- **Make small controls understandable.** Label Aa as “Reading preferences,” name both settings sliders and announce their units, and announce the selected prompt and bookmark state. In a directory containing both loose conversations and subfolders, the existing sort sheet only offered folder choices. Give that sheet separate Folders and Conversations sections for this case. A directory containing only one kind of item needs only one group of options.
+
+## What to preserve
+
+The purple accent, the visible bookmark star, and the same library/reader search placement give the app a recognizable identity. Use purple for actions and selection, with neutral styling for informational section headings. The current reader's direct access to Contents and type controls is worth keeping. Google Play Books also puts these tasks within reach of the passage. [Google Play Books reading controls](https://support.google.com/googleplay/answer/185545?co=GENIE.Platform%3DAndroid&hl=en)
+
+Android distinguishes primary destinations from secondary navigation and recommends adapting to the available window. That supports keeping the bottom destinations while letting source tabs and library content reflow. Android's accessibility guidance also supports explicit control labels and 48 dp touch targets. [Android navigation patterns](https://developer.android.com/design/ui/mobile/guides/layout-and-content/layout-and-nav-patterns) · [Android accessibility guidance](https://developer.android.com/guide/topics/ui/accessibility/apps)
+
+## How this was tested
+
+Four device checks passed in the isolated test build on a Motorola Edge 60 Neo running Android 16. They included finding and opening a conversation by model, typing a library filter, reader search and navigation, Settings, and Reading preferences. I inspected screenshots of these flows with synthetic conversation data. A separate run of the optimized build returned to the same line and pixel after eight swipes and a process restart.
+
+Twelve targeted Android 15 simulation checks exercised short portrait and landscape windows, larger text, a tablet-width reader, first launch, mixed folders, search feedback, and accessibility properties. These were measured layouts and automated interactions. Actual TalkBack speech and user preference for the proposed visual treatment still need a hands-on trial. No change to the installed reader or app version was made.

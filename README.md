@@ -4,7 +4,7 @@
 
 Take your stories, research, coding answers and late-night rabbit holes with you. Conversation Reader turns saved LM Studio chats into a comfortable Android reading experience, with formatted replies, a searchable library and a place waiting for you when you come back. A calm purple interface keeps Library, Recent and Bookmarked within easy reach.
 
-**Offline. Private. Open source.** No account or connection to LM Studio required.
+**Private and open source.** Read offline without an account or connection to LM Studio.
 
 [**Download the Android APK**](https://github.com/jen9czech/lm-studio-conversation-reader/releases/latest) · Android 8.0+ · [MIT license](LICENSE)
 
@@ -13,23 +13,19 @@ Compatible with **LM Studio 0.4.28 (Build 2)** conversation JSON files.
 ## A look inside
 
 <table>
+  <tr><th>Browse by model</th><th>Prompt overview</th><th>Bookmarked conversations</th></tr>
   <tr>
-    <th>Your library</th>
-    <th>Time to read</th>
-    <th>Prompt overview</th>
-  </tr>
-  <tr>
-    <td><img src="docs/screenshots/library.png" width="260" alt="Conversation library with prompt and word counts and bottom navigation"></td>
-    <td><img src="docs/screenshots/reading.png" width="260" alt="A formatted conversation with prompt, Markdown reply and reading navigation"></td>
-    <td><img src="docs/screenshots/prompts.png" width="260" alt="Collapsed prompt preview with reply word count and headings"></td>
+    <td><img src="docs/screenshots/models.png" width="260" alt="Models view grouping conversations by model"></td>
+    <td><img src="docs/screenshots/prompts.png" width="260" alt="Several prompt previews with reply word counts and nested Markdown headings"></td>
+    <td><img src="docs/screenshots/bookmarked.png" width="260" alt="Bookmarked conversations with highlighted stars"></td>
   </tr>
 </table>
-
 <table>
-  <tr><th>Sort your library</th><th>Reading preferences</th></tr>
+  <tr><th>Sort conversations</th><th>Reading view</th><th>Settings</th></tr>
   <tr>
-    <td><img src="docs/screenshots/sorting.png" width="260" alt="Open sorting options for date, name and length with ascending and descending controls"></td>
-    <td><img src="docs/screenshots/preferences.png" width="260" alt="Reading preferences for text size, font and theme"></td>
+    <td><img src="docs/screenshots/sorting.png" width="260" alt="Conversation sorting options for date, name, length and direction"></td>
+    <td><img src="docs/screenshots/reading.png" width="260" alt="Formatted conversation with prompt and Markdown reply"></td>
+    <td><img src="docs/screenshots/settings.png" width="260" alt="Settings for linked folder, prompt previews, text size, theme and updates"></td>
   </tr>
 </table>
 
@@ -58,7 +54,7 @@ Install updates over the existing app to retain your library and preferences. Op
 
 Linked conversations open directly and remain unchanged. Importing an individual file creates an independent local copy in Imported; simply opening a linked conversation does not import it.
 
-The app has **no Internet permission**, accounts, telemetry or cloud backup. Its search index stays on the device. Web and email links open external apps only when you select them.
+The app uses Internet access only when you choose to check GitHub for updates. Conversation files and the search index stay on your device; the app has no accounts, telemetry or cloud backup. Web and email links open external apps only when you select them.
 
 ## Compatibility and scope
 

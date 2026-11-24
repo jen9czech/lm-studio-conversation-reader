@@ -21,9 +21,9 @@ android {
         applicationId = "cz.jan.conversationreader"
         minSdk = 26
         targetSdk = 36
-        versionCode = 48
-        versionName = "0.10.11"
-        buildConfigField("String", "UPDATED_DATE", "\"2026-11-22\"")
+        versionCode = 49
+        versionName = "0.10.12"
+        buildConfigField("String", "UPDATED_DATE", "\"2026-11-24\"")
     }
     buildFeatures { compose = true; buildConfig = true }
     val releaseSigning = if (productionSigning) signingConfigs.create("production") {

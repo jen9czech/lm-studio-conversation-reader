@@ -69,6 +69,11 @@ class MainActivity : ComponentActivity() {
 fun ReaderApp() {
     val context = LocalContext.current
     val store = remember { LibraryStore(context) }
+    var showWhatsNew by remember {
+        val prefs = store.preferences
+        val prior = prefs.getInt("lastSeenVersionCode", if (prefs.all.isEmpty()) BuildConfig.VERSION_CODE else 48)
+        mutableStateOf(prior < BuildConfig.VERSION_CODE)
+    }
     val scope = rememberCoroutineScope()
     var entries by remember { mutableStateOf<List<ImportedConversation>>(emptyList()) }
     var resumeReading by rememberSaveable { mutableStateOf(false) }
@@ -124,6 +129,11 @@ fun ReaderApp() {
     val interfaceScale = (fontSize / 17f).coerceIn(.85f, 1.30f)
     val typography = remember(interfaceScale) { readerInterfaceTypography(interfaceScale) }
     MaterialTheme(colorScheme = if (theme == "Dark" || (theme == "System" && isSystemInDarkTheme())) Night else Day, typography = typography) {
+        if (showWhatsNew) AlertDialog(onDismissRequest = { showWhatsNew = false; store.preferences.edit().putInt("lastSeenVersionCode", BuildConfig.VERSION_CODE).apply() },
+            title = { Text("What’s new in ${BuildConfig.VERSION_NAME}") },
+            text = { Text("• Check GitHub for new versions from Settings.\n• More compact Settings with font previews.\n• Improved prompt navigation and generation information.") },
+            confirmButton = { TextButton(onClick = { showWhatsNew = false; store.preferences.edit().putInt("lastSeenVersionCode", BuildConfig.VERSION_CODE).apply() }) { Text("Got it") } })
+        LaunchedEffect(showWhatsNew) { if (!showWhatsNew) store.preferences.edit().putInt("lastSeenVersionCode", BuildConfig.VERSION_CODE).apply() }
         Scaffold(
             topBar = {
             }, snackbarHost = { SnackbarHost(snackbars) }

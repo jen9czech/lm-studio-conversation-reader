@@ -362,7 +362,7 @@ fun ConversationReader(entry: LibraryEntry, store: LibraryStore, fontSize: Float
                     if (disclosure && row.kind == "preview") {
                         val closed = row.kind == "preview"
                         val highlighted = closed && row.message == highlightedGroup
-                        Card(onClick = {
+                        Card(shape = MaterialTheme.shapes.medium, onClick = {
                             if (closed) {
                                 highlightedGroup = groups[row.message]
                                 expanded = (expanded + groups[row.message]).distinct()
@@ -609,7 +609,7 @@ private fun ReadingTextBlock(block: ReadingBlock, renderer: Markwon, fontSize: F
     val callback by rememberUpdatedState(onView)
     val overflowCallback by rememberUpdatedState(onOverflow)
     val inset = prompt || block.thinking
-    Surface(modifier = Modifier.padding(start = if (inset) 16.dp else 0.dp).then(if (onCollapse != null) Modifier.clickable(onClickLabel = "Collapse prompt and replies", onClick = onCollapse) else Modifier), border = if (prompt && highlighted) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null, color = if (prompt && highlighted) androidx.compose.ui.graphics.lerp(MaterialTheme.colorScheme.primaryContainer, androidx.compose.ui.graphics.Color.White, .18f) else if (prompt) MaterialTheme.colorScheme.primaryContainer else if (block.thinking) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surface, shape = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)) {
+    Surface(modifier = Modifier.padding(start = if (block.thinking) 16.dp else 0.dp).then(if (onCollapse != null) Modifier.clickable(onClickLabel = "Collapse prompt and replies", onClick = onCollapse) else Modifier), border = if (prompt && highlighted) androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null, color = if (prompt && highlighted) androidx.compose.ui.graphics.lerp(MaterialTheme.colorScheme.primaryContainer, androidx.compose.ui.graphics.Color.White, .18f) else if (prompt) MaterialTheme.colorScheme.primaryContainer else if (block.thinking) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surface, shape = if (prompt) MaterialTheme.shapes.medium else androidx.compose.foundation.shape.RoundedCornerShape(20.dp)) {
         AndroidView(factory = { BlockTextView(it).apply { setPadding(0, 0, 0, 0) } }, update = { view ->
             view.setTextIsSelectable(onCollapse == null)
             view.setOnClickListener(if (onCollapse != null) android.view.View.OnClickListener { onCollapse() } else null)

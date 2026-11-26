@@ -48,11 +48,11 @@ class LibraryScopeAuditTest {
         ActivityScenario.launch(MainActivity::class.java).use {
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Gardening notes").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("1 folder").assertIsDisplayed()
-            compose.onNodeWithText("Name ↑").assertIsDisplayed()
+            compose.onNodeWithText("Count ↑").assertIsDisplayed()
             compose.onAllNodesWithText("conversations", substring = true).assertCountEquals(0)
             compose.onNodeWithText("Models").performClick()
             compose.onNodeWithText("1 model").assertIsDisplayed()
-            compose.onNodeWithText("Name ↑").assertIsDisplayed()
+            compose.onNodeWithText("Count ↑").assertIsDisplayed()
             compose.onAllNodesWithText("conversations", substring = true).assertCountEquals(0)
             compose.onNodeWithText("Folders").performClick()
             compose.onNodeWithContentDescription("Search").performClick()

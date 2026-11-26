@@ -21,7 +21,6 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.*
 import androidx.compose.ui.res.painterResource
@@ -358,36 +357,26 @@ fun ConversationReader(entry: LibraryEntry, store: LibraryStore, fontSize: Float
                 items(rows, key = { it.key }, contentType = { if (it.key.startsWith("preview:")) "promptGroup" else it.kind }) { row ->
                     val message = conversation.messages[row.message]
                     val version = message.versions[row.version]
-                    val disclosure = collapsePrompts && row.message == groups[row.message] && (row.kind == "preview" || row.kind == "header")
-                    if (disclosure && row.kind == "preview") {
-                        val closed = row.kind == "preview"
-                        val highlighted = closed && row.message == highlightedGroup
+                    if (collapsePrompts && row.message == groups[row.message] && row.kind == "preview") {
+                        val highlighted = row.message == highlightedGroup
                         Card(shape = MaterialTheme.shapes.medium, onClick = {
-                            if (closed) {
-                                highlightedGroup = groups[row.message]
-                                expanded = (expanded + groups[row.message]).distinct()
-                            } else expanded = expanded - groups[row.message]
+                            highlightedGroup = groups[row.message]
+                            expanded = (expanded + groups[row.message]).distinct()
                         },
-                            border = if (closed) androidx.compose.foundation.BorderStroke(1.dp, if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = .8f)) else null,
+                            border = androidx.compose.foundation.BorderStroke(1.dp, if (highlighted) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = .8f)),
                             colors = CardDefaults.cardColors(
                                 containerColor = when {
                                     highlighted -> MaterialTheme.colorScheme.primaryContainer
-                                    closed -> MaterialTheme.colorScheme.surfaceContainer
-                                    else -> MaterialTheme.colorScheme.surface
+                                    else -> MaterialTheme.colorScheme.surfaceContainer
                                 },
                                 contentColor = if (highlighted) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface),
-                            modifier = Modifier.fillMaxWidth().padding(bottom = if (closed) 8.dp else 0.dp).semantics {
-                                stateDescription = when {
-                                    highlighted -> "Collapsed, last opened"
-                                    closed -> "Collapsed"
-                                    else -> "Expanded"
-                                }
-                                onClick(label = if (closed) "Expand prompt and replies" else "Collapse prompt and replies", action = null)
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).semantics {
+                                stateDescription = if (highlighted) "Collapsed, last opened" else "Collapsed"
+                                onClick(label = "Expand prompt and replies", action = null)
                             }) {
                             Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(horizontal = 14.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                if (closed) {
-                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         Text(version.parts.joinToString("\n") { it.text }.ifBlank { "Empty prompt" },
                                             maxLines = 3, overflow = TextOverflow.Ellipsis,
                                             fontFamily = readerFontFamily(style.font), fontStyle = androidx.compose.ui.text.font.FontStyle.Italic, style = MaterialTheme.typography.bodySmall)
@@ -404,8 +393,7 @@ fun ConversationReader(entry: LibraryEntry, store: LibraryStore, fontSize: Float
                                             }
                                         }
                                     }
-                                } else Text("Collapse prompt and replies", Modifier.weight(1f), color = readerLinkColor(), style = MaterialTheme.typography.labelSmall)
-                                Icon(painterResource(R.drawable.ic_chevron), null, Modifier.size(22.dp).rotate(if (closed) 0f else 90f), tint = MaterialTheme.colorScheme.primary)
+                                Icon(painterResource(R.drawable.ic_chevron), null, Modifier.size(22.dp), tint = MaterialTheme.colorScheme.primary)
                             }
                         }
                     }

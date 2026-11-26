@@ -31,6 +31,7 @@ class NativeReaderAuditTest {
     @Before fun clearTestLibrary() {
         // Most reader checks explicitly exercise the expanded reading mode.
         context.getSharedPreferences("reader", Context.MODE_PRIVATE).edit().clear()
+            .putInt("lastSeenVersionCode", BuildConfig.VERSION_CODE)
             .putBoolean("collapsedOpeningDefaultApplied", true).putBoolean("collapsePrompts", false).commit()
         File(context.filesDir, "conversations").listFiles().orEmpty().forEach { it.delete() }
         val local = AuditLocalFilesProvider()
@@ -61,7 +62,7 @@ class NativeReaderAuditTest {
                     var size by remember { mutableFloatStateOf(17f) }
                     var theme by remember { mutableStateOf("Dark") }
                     var style by remember { mutableStateOf(ReaderStyle()) }
-                    MaterialTheme(colorScheme = if (theme == "Light") Day else Night) {
+                    MaterialTheme(colorScheme = if (theme == "Light") Day else Night, typography = readerInterfaceTypography((size / 17f).coerceIn(.85f, 1.30f))) {
                         ConversationReader(entry, store, size, style, collapsed, 0, false, {}, { preferences = true })
                         if (preferences) PreferencesScreen(false, null, size, theme, collapsed, { preferences = false }, {},
                             { size = it }, { theme = it }, {}, style, { style = it })
@@ -126,7 +127,7 @@ class NativeReaderAuditTest {
             assertEquals(420.0, column.center.x.toDouble(), 2.0)
             compose.onNodeWithContentDescription("Reading preferences").performClick()
             compose.onNodeWithText("Reading preferences").assertIsDisplayed()
-            compose.onNodeWithText("Courier Prime").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("Courier\nPrime").performScrollTo().assertIsDisplayed()
             compose.onNodeWithContentDescription("Close reading preferences").assertIsDisplayed()
             compose.onAllNodesWithText("Done").assertCountEquals(0)
         }
@@ -203,8 +204,8 @@ class NativeReaderAuditTest {
             compose.onNodeWithText("Settings").assertIsDisplayed()
             compose.onAllNodes(isPopup()).assertCountEquals(0)
             compose.onNodeWithText("Collapse by prompts").performScrollTo().assertIsDisplayed()
-            val description = compose.onNodeWithText("Show two-line prompt previews. Tap to read the full prompt and replies.").fetchSemanticsNode().boundsInRoot
-            val toggle = compose.onNodeWithContentDescription("Show two-line prompt previews").fetchSemanticsNode().boundsInRoot
+            val description = compose.onNodeWithText("Show prompt previews when opening a conversation").fetchSemanticsNode().boundsInRoot
+            val toggle = compose.onNodeWithContentDescription("Collapse by prompts").fetchSemanticsNode().boundsInRoot
             assertTrue(description.right <= toggle.left)
             compose.onAllNodesWithText("Conversation navigation").assertCountEquals(0)
             compose.onAllNodesWithText("The quick brown fox").assertCountEquals(0)
@@ -220,16 +221,20 @@ class NativeReaderAuditTest {
         context.getSharedPreferences("reader", Context.MODE_PRIVATE).edit().putString("linkedFolder", "content://audit.documents/tree/root").commit()
         File(context.filesDir, "folder-index.json").delete()
         ActivityScenario.launch(MainActivity::class.java).use {
+            compose.waitForIdle()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Archive title").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithContentDescription("Search").performClick()
             compose.onNode(hasSetTextAction()).performTextInput("bodyonlymarker")
             compose.onAllNodesWithText("Archive title").assertCountEquals(0)
             compose.onNodeWithText("All files").performClick()
+            compose.onNode(hasSetTextAction()).performTextInput("bodyonlymarker")
+            compose.onNodeWithText("Include conversation text").performClick()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Archive title").fetchSemanticsNodes().isNotEmpty() }
             compose.onNode(hasText("Folders") and hasClickAction()).performClick()
+            compose.onNode(hasSetTextAction()).performTextInput("bodyonlymarker")
             compose.onAllNodesWithText("Archive title").assertCountEquals(0)
-            compose.onNode(hasSetTextAction()).performTextReplacement("sample.conversation")
-            compose.onNodeWithText("Archive title").assertExists().performClick()
+            compose.onNode(hasSetTextAction()).performTextReplacement("Archive title")
+            compose.onNode(hasText("Archive title") and !hasSetTextAction()).assertExists().performClick()
             compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Back").fetchSemanticsNodes().isNotEmpty() }
             compose.onAllNodesWithContentDescription("Exit search").assertCountEquals(0)
         }
@@ -239,6 +244,7 @@ class NativeReaderAuditTest {
         val directory = File(context.filesDir, "conversations").apply { mkdirs() }
         File(directory, "thinking.json").writeText("""{"name":"Thinking example","messages":[{"versions":[{"role":"user","content":"Please compare the choices."}]},{"versions":[{"role":"assistant","steps":[{"type":"contentBlock","style":{"type":"thinking"},"content":"<think>A plan.\n\n        * **Reason** about the secretmarker.\n\n    * Another idea.</think>"},{"type":"contentBlock","content":"The visible final answer.","genInfo":{"stats":{"predictedTokensCount":42}}}]}]}]}""")
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            compose.waitForIdle()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Thinking example").fetchSemanticsNodes().isNotEmpty() }
             compose.onAllNodesWithText("Thinking example").onLast().performClick()
             compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Show thinking").fetchSemanticsNodes().isNotEmpty() }
@@ -291,6 +297,7 @@ class NativeReaderAuditTest {
     @Test fun importedConversationOpensAndSearchFindsRenderedReply() {
         seed()
         ActivityScenario.launch(MainActivity::class.java).use {
+            compose.waitForIdle()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Audit conversation").fetchSemanticsNodes().isNotEmpty() }
             openAuditConversation()
             compose.onNodeWithContentDescription("Search").performClick()
@@ -354,6 +361,7 @@ class NativeReaderAuditTest {
         val entry = store.load().first.single()
         store.preferences.edit().putBoolean("collapsePrompts", true).commit()
         ActivityScenario.launch(MainActivity::class.java).use {
+            compose.waitForIdle()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Audit conversation").fetchSemanticsNodes().isNotEmpty() }
             openAuditConversation()
             compose.onNode(collapsedPrompt).performClick()
@@ -385,6 +393,7 @@ class NativeReaderAuditTest {
         store.reading.saveAnchor(entry.id, ReadingAnchor(1, character = 12))
         store.preferences.edit().remove("collapsedOpeningDefaultApplied").putBoolean("collapsePrompts", false).commit()
         ActivityScenario.launch(MainActivity::class.java).use {
+            compose.waitForIdle()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Audit conversation").fetchSemanticsNodes().isNotEmpty() }
             repeat(2) {
                 openAuditConversation()
@@ -405,6 +414,7 @@ class NativeReaderAuditTest {
         seed()
         context.getSharedPreferences("reader", Context.MODE_PRIVATE).edit().putBoolean("collapsePrompts", true).commit()
         ActivityScenario.launch(MainActivity::class.java).use {
+            compose.waitForIdle()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Audit conversation").fetchSemanticsNodes().isNotEmpty() }
             openAuditConversation()
             compose.onAllNodesWithText("↑ Previous").assertCountEquals(0)
@@ -428,6 +438,7 @@ class NativeReaderAuditTest {
         context.getSharedPreferences("reader", Context.MODE_PRIVATE).edit().putString("linkedFolder", "content://audit.documents/tree/root").commit()
         File(context.filesDir, "folder-index.json").delete()
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            compose.waitForIdle()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Cached title").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Cached title").performClick()
             compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Back").fetchSemanticsNodes().isNotEmpty() }
@@ -448,7 +459,7 @@ class NativeReaderAuditTest {
             assertEquals(before.message, after.message)
             assertTrue("Restore should stay within one line of the saved passage: $before -> $after", kotlin.math.abs(before.character - after.character) < 100)
             compose.onNodeWithText("Aa").performClick()
-            compose.onNodeWithText("Liberation Serif").performScrollTo().performClick()
+            compose.onNodeWithText("Liberation\nSerif").performScrollTo().performClick()
             compose.onAllNodesWithContentDescription("Back").onLast().performClick()
             compose.waitForIdle()
             assertTrue("Font changes must keep the same passage", kotlin.math.abs(before.character - store.reading.anchor(id)!!.character) < 100)
@@ -458,6 +469,7 @@ class NativeReaderAuditTest {
     @Test fun oneStarTogglesConsistentlyAcrossReaderAndBookmarkedView() {
         seed()
         ActivityScenario.launch(MainActivity::class.java).use {
+            compose.waitForIdle()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Audit conversation").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithContentDescription("Add bookmark").performClick()
             compose.onNodeWithContentDescription("Remove bookmark").assertExists()
@@ -484,6 +496,7 @@ class NativeReaderAuditTest {
     @Test fun importedFilterUsesTitlesAndOpensReaderWithNormalControls() {
         seed()
         ActivityScenario.launch(MainActivity::class.java).use {
+            compose.waitForIdle()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Audit conversation").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithContentDescription("Search").performClick()
             compose.onNode(hasSetTextAction()).performTextInput("needle")
@@ -502,6 +515,7 @@ class NativeReaderAuditTest {
     @Test fun searchKeepsKeyboardAndFocusWhileTypingAndNavigatingMatches() {
         seed()
         ActivityScenario.launch(MainActivity::class.java).use {
+            compose.waitForIdle()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Audit conversation").fetchSemanticsNodes().isNotEmpty() }
             openAuditConversation()
             compose.onNodeWithContentDescription("Search").performClick()
@@ -528,6 +542,7 @@ class NativeReaderAuditTest {
         }
         File(context.filesDir, "conversations").apply { mkdirs() }.resolve("next-test.json").writeText(org.json.JSONObject().put("name", "Navigation regression").put("messages", messages).toString())
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            compose.waitForIdle()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Navigation regression").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Navigation regression").performClick()
             compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Expand prompt").fetchSemanticsNodes().isNotEmpty() }
@@ -550,6 +565,7 @@ class NativeReaderAuditTest {
             .put(org.json.JSONObject().put("versions", org.json.JSONArray().put(org.json.JSONObject().put("role", "assistant").put("content", reply)))))
         File(context.filesDir, "conversations").apply { mkdirs() }.resolve("preview.json").writeText(raw.toString())
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            compose.waitForIdle()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Long prompt example").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithText("Long prompt example").performClick()
             compose.waitUntil(10_000) { compose.onAllNodesWithContentDescription("Expand prompt").fetchSemanticsNodes().isNotEmpty() }
@@ -587,6 +603,7 @@ class NativeReaderAuditTest {
     @Test fun modelsViewGroupsFilesAndReturnsToSelectedView() {
         seed()
         ActivityScenario.launch(MainActivity::class.java).use {
+            compose.waitForIdle()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Audit conversation").fetchSemanticsNodes().isNotEmpty() }
             compose.onNodeWithContentDescription("Open navigation menu").performClick()
             compose.onNode(hasText("Models") and hasAnyAncestor(isPopup())).performClick()
@@ -594,7 +611,7 @@ class NativeReaderAuditTest {
             compose.onNodeWithContentDescription("Sort Models").performClick()
             compose.onAllNodesWithText("Date").assertCountEquals(0)
             compose.onAllNodesWithText("Length").assertCountEquals(0)
-            compose.onNodeWithText("Count").assertDoesNotExist()
+            compose.onNodeWithText("Count").assertIsDisplayed()
             compose.onNodeWithContentDescription("Descending").assertIsNotSelected().performClick().assertIsSelected()
             compose.onNodeWithText("Your library").performTouchInput { click() }
             compose.onNodeWithText("Name ↓").assertIsDisplayed()
@@ -636,17 +653,23 @@ class NativeReaderAuditTest {
             else -> emptyList()
         }
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
+            compose.waitForIdle()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Audit conversation").fetchSemanticsNodes().isNotEmpty() }
             openAuditConversation()
             for (font in listOf("Serif", "Monospaced", "Sans-serif")) {
                 compose.onNodeWithText("Aa").performClick()
-                compose.onNodeWithText(readerFontName(font)).performScrollTo().performClick()
+                val label = when (font) { "Sans-serif" -> "Sans-\nserif"; "Serif" -> "Liberation\nSerif"; else -> "Courier\nPrime" }
+                compose.onNodeWithText(label).performScrollTo().performClick()
                 compose.onNodeWithContentDescription("Close reading preferences").performClick()
                 compose.waitForIdle()
                 scenario.onActivity { activity ->
                     val blocks = textViews(activity.window.decorView).filter { it.javaClass.simpleName == "BlockTextView" }
                     assertTrue("Reader should contain native body text", blocks.isNotEmpty())
-                    blocks.forEach { assertEquals("Font must update the actual body view", readerTypeface(context, font), it.typeface) }
+                    blocks.forEach {
+                        val base = readerTypeface(context, font)
+                        val expected = if (it.text.contains("A test prompt")) android.graphics.Typeface.create(base, android.graphics.Typeface.ITALIC) else base
+                        assertEquals("Font must update the actual text view", expected, it.typeface)
+                    }
                 }
             }
         }
@@ -655,6 +678,7 @@ class NativeReaderAuditTest {
     @Test fun readerActionsShareToolbarAndProgressSharesBottomNavigationRow() {
         seed()
         ActivityScenario.launch(MainActivity::class.java).use {
+            compose.waitForIdle()
             compose.waitUntil(10_000) { compose.onAllNodesWithText("Audit conversation").fetchSemanticsNodes().isNotEmpty() }
             openAuditConversation()
             val search = compose.onNodeWithContentDescription("Search").fetchSemanticsNode().boundsInRoot

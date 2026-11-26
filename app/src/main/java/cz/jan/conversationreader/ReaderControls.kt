@@ -201,49 +201,24 @@ fun PreferencesScreen(main: Boolean, folder: String?, fontSize: Float, theme: St
         return
     }
     val controls: @Composable ColumnScope.() -> Unit = {
-        if (main) {
-            DetailSection("Linked folder") {
-                FilledTonalButton(onClick = onFolder, modifier = Modifier.fillMaxWidth()) {
-                    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                        Text(if (folder == null) "Link a folder" else "Change folder")
-                        folder?.let { Text(Uri.decode(it).substringAfterLast(":"), style = MaterialTheme.typography.bodySmall) }
-                    }
-                }
-            }
-            DetailSection("Collapse by prompts") {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Show two-line prompt previews. Tap to read the full prompt and replies.", Modifier.weight(1f).padding(end = 12.dp), style = MaterialTheme.typography.bodySmall)
-                    Switch(collapse, onCollapse, modifier = Modifier.semantics { contentDescription = "Show two-line prompt previews" })
-                }
-            }
-        }
-        DetailSection("Text size", compact = !main, largerHeading = true) {
+        DetailSection("Text size", compact = true, largerHeading = true) {
             Text("${fontSize.toInt()} sp", style = MaterialTheme.typography.titleMedium)
             Slider(fontSize, onFont, valueRange = 14f..26f, steps = 11, modifier = Modifier.semantics {
                 contentDescription = "Text size"
                 stateDescription = "${fontSize.toInt()} sp"
             })
         }
-        DetailSection("Font", compact = !main, largerHeading = true) {
+        DetailSection("Font", compact = true, largerHeading = true) {
             FontChoices(style, onStyle)
         }
-        DetailSection("Theme", compact = !main, largerHeading = true) {
+        DetailSection("Theme", compact = true, largerHeading = true) {
             Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 listOf("Light", "Dark", "System").forEach { choice -> ThemeChoice(choice, theme, onTheme, Modifier.weight(1f)) }
             }
         }
 
-        if (main) DetailSection("About") {
-            Text("LM Studio Conversation Reader", style = MaterialTheme.typography.titleMedium)
-            TextButton(onClick = {
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/jen9czech/lm-studio-conversation-reader")))
-            }, modifier = Modifier.semantics { onClick(label = "Open GitHub project", action = null) }) {
-                Text("Version ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE}) ↗\nUpdated ${BuildConfig.UPDATED_DATE}")
-            }
-        }
     }
-    if (main) ReaderDetailScreen("Settings", onClose, content = controls)
-    else ControlsSheet("Reading preferences", onClose, allowPartial = true, content = controls)
+    ControlsSheet("Reading preferences", onClose, allowPartial = true, content = controls)
 }
 
 @Composable

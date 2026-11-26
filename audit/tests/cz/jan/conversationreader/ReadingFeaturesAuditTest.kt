@@ -201,7 +201,7 @@ class ReadingFeaturesAuditTest {
         assertEquals(listOf(firstHeading, lastHeading), part.headings.map { it.anchor.character })
     }
 
-    @Test fun firstTwoHeadingLevelsStayLargerThanBodyAtEveryReadingSize() {
+    @Test fun headingsUseReadingSizeAndFirstLevelIsBold() {
         val text = createMarkdownRenderer(context).toMarkdown("# First heading\n\n## Second heading\n\nBody text.")
         for (size in listOf(14f, 20f, 28f, 32f)) {
             val view = android.widget.TextView(context)
@@ -215,10 +215,10 @@ class ReadingFeaturesAuditTest {
             val body = measuredSize("Body text.")
             val first = measuredSize("First heading")
             val second = measuredSize("Second heading")
-            assertTrue("H1 must exceed H2", first > second)
-            assertTrue("H2 must exceed body at $size sp", second > body)
-            assertEquals(body * 1.45f, first, .1f)
-            assertEquals(body * 1.25f, second, .1f)
+            assertEquals(body, first, .1f)
+            assertEquals(body, second, .1f)
+            val start = text.toString().indexOf("First heading")
+            assertTrue(text.getSpans(start, start + "First heading".length, android.text.style.StyleSpan::class.java).any { it.style == android.graphics.Typeface.BOLD })
         }
     }
 

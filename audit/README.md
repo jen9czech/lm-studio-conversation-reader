@@ -1,6 +1,6 @@
 # Conversation Reader audit
 
-This optional harness tests the current app without adding dependencies to the production APK or changing its version. The assessment is in [APP_REVIEW.md](APP_REVIEW.md); baseline machine-readable results are in [results.json](results.json). Current release verification is in [VERIFICATION-0.9.2.md](VERIFICATION-0.9.2.md) and [results-0.9.2.json](results-0.9.2.json).
+This optional harness tests the current app without adding dependencies to the production APK or changing its version. The assessment in [APP_REVIEW.md](APP_REVIEW.md) and the versioned verification reports document earlier releases; they are historical records, not results for the current build.
 
 ## Run
 
@@ -13,9 +13,9 @@ From the project root in PowerShell:
 
 The first command runs the optimized release build, unit tests, and release lint. The second adds test-only Robolectric and Compose UI dependencies, Android resources, the app manifest, and the tests in `audit/tests`. First use downloads a substantial Android simulation runtime. JDK 17 runs these simulations at Android API 35. This is not a phone or emulator performance benchmark.
 
-## Current result
+## Coverage and historical results
 
-App version **0.9.2 passes all 76 expanded host tests**. See [release verification](VERIFICATION-0.9.2.md) and [machine-readable results](results-0.9.2.json). The optimized release phone smoke check last passed on 0.9.1; 0.9.2 was installed and launched successfully. The four-test Compose device suite last passed on the unminified 0.9.0 build.
+The [0.9.2 verification](VERIFICATION-0.9.2.md) and [machine-readable results](results-0.9.2.json) describe that historical release. Run the checks above for results against the current source.
 
 The current suite covers the redesigned bottom navigation, visible library views, sort sheets, reading controls, and large-font layouts. The 200% font check verifies that essential labels are not ellipsized and fit their measured bounds (with a one-pixel rounding tolerance). Physical tests cover search focus, prompt jumps, Thinking, settings, model restoration, and atomic storage. Neutral screenshots were captured from the isolated app on the Motorola.
 

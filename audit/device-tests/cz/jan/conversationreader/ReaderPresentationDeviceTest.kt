@@ -23,7 +23,7 @@ class ReaderPresentationDeviceTest {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         check(context.packageName == "cz.jan.conversationreader.quality")
         val store = LibraryStore(context)
-        store.preferences.edit().clear().putBoolean("collapsedOpeningDefaultApplied", true)
+        store.preferences.edit().clear().putInt("lastSeenVersionCode", BuildConfig.VERSION_CODE).putBoolean("collapsedOpeningDefaultApplied", true)
             .putBoolean("collapsePrompts", true).commit()
         val directory = File(context.filesDir, "conversations").apply { mkdirs() }
         val messages = JSONArray()
@@ -69,8 +69,8 @@ class ReaderPresentationDeviceTest {
             compose.waitUntil(15_000) { store.reading.resumeAnchor("reader-presentation")?.message == 12 }
             compose.onNodeWithContentDescription("Contents").performClick()
             compose.onNodeWithText("Current section").assertIsDisplayed()
-            compose.onNodeWithText("Section 12").assertIsDisplayed()
-            compose.onNodeWithText("Section 13").performClick()
+            compose.onNodeWithText("Section 12").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("Section 13").performScrollTo().performClick()
             compose.waitUntil(15_000) { store.reading.resumeAnchor("reader-presentation")?.message == 13 }
 
             compose.onNode(hasScrollToIndexAction()).performTouchInput {

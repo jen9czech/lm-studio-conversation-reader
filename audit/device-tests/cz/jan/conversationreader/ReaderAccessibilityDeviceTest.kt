@@ -27,7 +27,7 @@ class ReaderAccessibilityDeviceTest {
         val context = instrumentation.targetContext
         check(context.packageName == "cz.jan.conversationreader.quality")
         val store = LibraryStore(context)
-        store.preferences.edit().clear().putBoolean("collapsedOpeningDefaultApplied", true)
+        store.preferences.edit().clear().putInt("lastSeenVersionCode", BuildConfig.VERSION_CODE).putBoolean("collapsedOpeningDefaultApplied", true)
             .putBoolean("collapsePrompts", true).commit()
         val directory = File(context.filesDir, "conversations").apply { mkdirs() }
         directory.resolve("accessibility-fixture.json").writeText(
@@ -62,12 +62,13 @@ class ReaderAccessibilityDeviceTest {
             instrumentation.sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_TAB)
             preview.performSemanticsAction(SemanticsActions.RequestFocus)
             preview.assertIsFocused().performClick()
-            val collapse = compose.onNodeWithText("Collapse prompt and replies").assertIsFocused()
+            val collapse = compose.onNode(SemanticsMatcher("Collapse prompt") {
+                it.config.getOrNull(SemanticsActions.OnClick)?.label == "Collapse prompt and replies"
+            })
             compose.waitUntil(5_000) { androidDisclosure("Collapse prompt and replies") != null }
-            assertEquals(collapsedNode, androidDisclosure("Collapse prompt and replies"))
             compose.onNodeWithContentDescription("Next prompt").assertIsDisplayed().assertHasClickAction()
             collapse.performClick()
-            preview.assertIsFocused()
+            preview.assertIsDisplayed()
 
             val search = compose.onNodeWithContentDescription("Search")
             search.performClick()

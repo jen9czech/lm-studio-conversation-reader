@@ -21,7 +21,7 @@ class ReaderDeviceTest {
 
     @Before fun seedIsolatedLibrary() {
         check(context.packageName == "cz.jan.conversationreader.quality") { "Device tests require the isolated quality application" }
-        context.getSharedPreferences("reader", Context.MODE_PRIVATE).edit().clear()
+        context.getSharedPreferences("reader", Context.MODE_PRIVATE).edit().clear().putInt("lastSeenVersionCode", BuildConfig.VERSION_CODE)
             .putBoolean("collapsedOpeningDefaultApplied", true).putBoolean("collapsePrompts", false).commit()
         val directory = File(context.filesDir, "conversations").apply { mkdirs() }
         directory.listFiles().orEmpty().forEach { it.delete() }
@@ -153,7 +153,7 @@ class ReaderDeviceTest {
             capture("settings")
             compose.onNodeWithText("System").performScrollTo().assertIsDisplayed()
             capture("appearance")
-            compose.onNodeWithText("Sans-serif").performScrollTo().assertIsDisplayed()
+            compose.onNodeWithText("About").performScrollTo().assertIsDisplayed()
         }
     }
 

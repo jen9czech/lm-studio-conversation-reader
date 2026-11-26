@@ -110,7 +110,7 @@ public class Runner extends Instrumentation {
       for(int i=0;i<2;i++)click("Next prompt");
       for(int i=0;i<2;i++)click("Previous prompt");
       click("Show thinking"); reveal("↑ Collapse thinking"); click("↑ Collapse thinking");
-      for(String font:new String[]{"Liberation Serif","Courier Prime","Sans-serif"}){
+      for(String font:new String[]{"Liberation\nSerif","Courier\nPrime","Sans-\nserif"}){
         click("Reading preferences");
         waitFor("Reading preferences");
         expandPanel(getUiAutomation().getRootInActiveWindow());

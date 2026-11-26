@@ -96,7 +96,8 @@ fun ReaderApp() {
         entries = loaded.first.sortedByDescending { maxOf(store.recent(it.id), it.metadata.modified) }
         if (loaded.second > 0) notice = "${loaded.second} saved file(s) could not be read."
     }
-    LaunchedEffect(Unit) { try { refresh() } finally { busy = false } }
+    // Let the initial loading UI enter composition before publishing the background result.
+    LaunchedEffect(Unit) { withFrameNanos { }; try { refresh() } finally { busy = false } }
     LaunchedEffect(activeReference) {
         if (activeReference != null && activeEntry == null) {
             busy = true

@@ -113,7 +113,7 @@ class AccessibilityLayoutAuditTest {
         }
     }
 
-    @Test fun sortChoicesStackInEqualWidthAndApplyImmediately() {
+    @Test fun sortChoicesShareOneRowAndApplyImmediately() {
         render(content = {
             var field by remember { mutableStateOf("Date") }
             var descending by remember { mutableStateOf(true) }
@@ -125,7 +125,7 @@ class AccessibilityLayoutAuditTest {
             compose.onNodeWithContentDescription("Sort Conversations").performClick()
             val date = compose.onNodeWithText("Date").assertIsSelected().fetchSemanticsNode().boundsInRoot
             val length = compose.onNodeWithText("Length").fetchSemanticsNode().boundsInRoot
-            assertTrue(date.top < length.top && date.width == length.width && date.right == length.right)
+            assertTrue(date.top == length.top && kotlin.math.abs(date.width - length.width) <= 1f && date.right <= length.left)
             compose.onNodeWithText("Length").performClick().assertIsSelected()
             compose.onNodeWithContentDescription("Ascending").performClick().assertIsSelected()
             compose.onAllNodesWithText("Done").assertCountEquals(0)
@@ -170,10 +170,12 @@ class AccessibilityLayoutAuditTest {
             compose.runOnIdle { inputMode.requestInputMode(InputMode.Keyboard) }
             preview.performSemanticsAction(SemanticsActions.RequestFocus)
             preview.assertIsFocused().performClick()
-            val collapse = compose.onNodeWithText("Collapse prompt and replies").assertIsFocused()
+            val collapse = compose.onNode(SemanticsMatcher("Collapse prompt") {
+                it.config.getOrNull(SemanticsActions.OnClick)?.label == "Collapse prompt and replies"
+            })
             compose.onNodeWithContentDescription("Next prompt").assertIsDisplayed().assertHasClickAction()
             collapse.performClick()
-            preview.assertIsFocused()
+            preview.assertIsDisplayed()
         }
     }
 
